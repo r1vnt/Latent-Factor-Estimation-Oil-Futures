@@ -328,3 +328,48 @@ covid_weight = covid_weight[np.isfinite(covid_weight)]
 print(f"\nApril 2020 EM weights (1.0 = full Gaussian trust, -> 0 = down-weighted): "
      f"mean {covid_weight.mean():.3f}  min {covid_weight.min():.3f}, "
      f"vs overall mean {np.nanmean(weight_t_full):.3f}")
+
+# %% [markdown]
+# ## How heavy are the tails, really?
+#
+# `resid_t_full` is z = v/sqrt(F) under the fitted Student-t model's own raw
+# scale, so under a correctly-specified fit it should look like a standard
+# t_df draw -- variance df/(df-2), not 1. Inverting that against the observed
+# variance gives the *implied* df; an MLE fit (df free, loc/scale pinned at
+# 0/1, since z is already on that scale by construction) is the more
+# principled version of the same question.
+#
+# df near 2 is not "moderately heavy-tailed" -- it's near where the variance
+# stops existing, and usually means the t is absorbing something structural
+# rather than measuring genuine tail thickness. Sec. XII-A already flags
+# April 2020 as known misspecification, so that is the first thing to rule
+# in or out before ever estimating df jointly on the full sample.
+
+# %%
+from scipy.stats import t as student_t_dist
+
+
+def df_diagnostics(resid: np.ndarray, mask: np.ndarray, label: str):
+    r = resid[mask]
+    r = r[np.isfinite(r)]
+    sd = float(r.std())
+    implied_df = 2.0 * sd ** 2 / (sd ** 2 - 1.0) if sd > 1.0 else np.inf
+    mle_df = float(student_t_dist.fit(r, floc=0.0, fscale=1.0)[0])
+    print(f"{label:22s} n={r.size:6d}  sd={sd:.4f}  "
+         f"implied df (moments)={implied_df:6.2f}  MLE df={mle_df:6.2f}")
+    return sd, implied_df, mle_df
+
+
+all_mask = np.ones_like(resid_t_full, dtype=bool)
+covid_rows = np.zeros_like(resid_t_full, dtype=bool)
+covid_rows[covid] = True
+
+df_diagnostics(resid_t_full, all_mask, "full sample")
+df_diagnostics(resid_t_full, ~covid_rows, "excluding April 2020")
+df_diagnostics(resid_t_full, covid_rows, "April 2020 only")
+
+worst = np.argsort(-np.abs(np.nan_to_num(resid_t_full, nan=0.0)), axis=None)[:10]
+print("\nworst 10 raw |z| (date, contract, z):")
+for idx in worst:
+    a, b = np.unravel_index(idx, resid_t_full.shape)
+    print(f"  {panel.dates[a].date()}  {panel.labels[b]}  z={resid_t_full[a, b]:+7.2f}")
