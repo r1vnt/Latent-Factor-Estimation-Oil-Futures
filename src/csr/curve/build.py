@@ -19,6 +19,14 @@ since a stdev estimate is exactly what those outliers would inflate. Flags
 are stored as boolean arrays so they can enter the conditional analysis as
 covariates later, rather than silently deleting data a downstream study
 might have wanted to condition on.
+
+A fourth, derived flag -- ``bad_price`` -- lives in level space rather than
+return space. A single bad settlement at day t shows up as *two* flagged
+returns (the jump into t and the jump back out at t+1), so conditioning on
+``outlier_return`` directly as a price-quality covariate mislabels t+1,
+whose own settlement was fine. ``bad_price`` isolates day t by requiring
+both adjacent returns flagged with opposite sign -- the spike-and-revert
+signature -- which a genuine, persistent repricing does not produce.
 """
 
 from __future__ import annotations
@@ -119,20 +127,48 @@ def _stale_mask(col: np.ndarray, min_run: int) -> np.ndarray:
     return (valid & (run_len >= min_run)).to_numpy()
 
 
-def _outlier_mask(log_col: np.ndarray, k: float) -> np.ndarray:
+def _log_returns(log_col: np.ndarray) -> np.ndarray:
+    ret = np.full(log_col.shape, np.nan)
+    ret[1:] = np.diff(log_col)
+    return ret
+
+
+def _outlier_mask(ret: np.ndarray, k: float) -> np.ndarray:
     """Log returns beyond k robust SDs, MAD-based rather than stdev-based.
 
     The outliers this is meant to catch are exactly what would inflate a
     stdev threshold; the median absolute deviation is not moved by them.
     """
-    ret = np.full(log_col.shape, np.nan)
-    ret[1:] = np.diff(log_col)
     med = np.nanmedian(ret)
     mad = np.nanmedian(np.abs(ret - med))
     robust_sd = MAD_TO_SD * mad
     if not np.isfinite(robust_sd) or robust_sd == 0.0:
-        return np.zeros(log_col.shape, dtype=bool)
+        return np.zeros(ret.shape, dtype=bool)
     return np.isfinite(ret) & (np.abs(ret - med) > k * robust_sd)
+
+
+def _bad_price_mask(outlier: np.ndarray, ret: np.ndarray) -> np.ndarray:
+    """Isolate the bad *price*, not the two returns it contaminates.
+
+    A one-day bad settlement at day t shows up as two flagged returns: the
+    jump into t and the jump back out at t+1, in opposite directions. That
+    signature -- ret[t] and ret[t+1] both flagged, opposite sign -- pins the
+    error to day t specifically, which is what a price-quality covariate
+    needs to condition on (H4 interacts the news effect with price-channel
+    noise; mislabelling t+1 would condition on a settlement that was fine).
+
+    A persistent level shift flags only ret[t], with a normal-sized ret[t+1]
+    once the new level is established -- correctly not flagged here, since
+    it is a real repricing, not a measurement error.
+    """
+    n = outlier.shape[0]
+    bad = np.zeros(n, dtype=bool)
+    if n < 2:
+        return bad
+    both = outlier[:-1] & outlier[1:]
+    opposite = np.sign(ret[:-1]) != np.sign(ret[1:])
+    bad[:-1] = both & opposite
+    return bad
 
 
 @dataclass
@@ -191,13 +227,22 @@ class Panel:
         tau = time_to_maturity(dates, wide.shape[1], prefix=prefix, basis=basis)
         roll = roll_indicator(dates, window=roll_window, prefix=prefix)
 
+        returns = np.column_stack([_log_returns(log_f[:, j])
+                                   for j in range(log_f.shape[1])])
+        outlier = np.column_stack([_outlier_mask(returns[:, j], mad_k)
+                                   for j in range(log_f.shape[1])])
         flags = {
             "low_price": (price > 0) & (price < min_price),
             "stale": np.column_stack([
                 _stale_mask(price[:, j], stale_run) for j in range(price.shape[1])
             ]),
-            "outlier_return": np.column_stack([
-                _outlier_mask(log_f[:, j], mad_k) for j in range(log_f.shape[1])
+            "outlier_return": outlier,
+            # The level-space counterpart of outlier_return: pins a bad
+            # settlement to the one day it actually happened on, rather than
+            # also implicating the day after via the reversion it caused.
+            "bad_price": np.column_stack([
+                _bad_price_mask(outlier[:, j], returns[:, j])
+                for j in range(log_f.shape[1])
             ]),
         }
 

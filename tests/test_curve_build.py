@@ -118,6 +118,34 @@ def test_outlier_return_screen_uses_mad_not_stdev():
     assert panel.flags["outlier_return"][:, 0].sum() == 1   # noise stays quiet
 
 
+def test_bad_price_isolates_the_spike_not_the_revert():
+    """A one-day bad settlement flags returns at t and t+1; bad_price must
+    pin the error to t, the day the price was actually wrong."""
+    wide = _base_prices(n=120)
+    wide.iloc[50, 0] = wide.iloc[49, 0] * 1.5   # spike, then reverts next day
+
+    panel = Panel.from_prices(wide, verbose=False)
+
+    assert panel.flags["outlier_return"][50, 0]
+    assert panel.flags["outlier_return"][51, 0]
+    assert panel.flags["bad_price"][50, 0]
+    assert not panel.flags["bad_price"][51, 0]
+    assert panel.flags["bad_price"][:, 0].sum() == 1
+
+
+def test_bad_price_does_not_fire_on_a_genuine_repricing():
+    """A persistent level shift flags one return and no level -- it's a
+    real repricing, not a measurement error."""
+    wide = _base_prices(n=120)
+    wide.iloc[50:, 0] = wide.iloc[50:, 0] * 1.5
+
+    panel = Panel.from_prices(wide, verbose=False)
+
+    assert panel.flags["outlier_return"][50, 0]
+    assert not panel.flags["outlier_return"][51, 0]
+    assert not panel.flags["bad_price"][:, 0].any()
+
+
 # ------------------------------------------------------------- QualityReport
 def test_quality_report_counts_and_dates_match_the_flags():
     wide = _base_prices()
