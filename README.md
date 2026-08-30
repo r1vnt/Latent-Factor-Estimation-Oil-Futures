@@ -41,8 +41,13 @@ data.
 **Curve depth.** No Bloomberg/LSEG/Datastream access via KCL. Proceeding on
 the free EIA API (`petroleum/pri/fut`), which gives CL1–CL4 only — thin but
 workable with the Bayesian prior on κ from §XII-A. `EIA_API_KEY` goes in a
-local `.env` (gitignored, see `.env.example`), never committed or pasted into
-chat.
+local `.env` (gitignored), never committed or pasted into chat.
+
+**The EIA series is discontinued.** `petroleum/pri/fut`'s own metadata
+reports `endPeriod: 2024-04-05` — confirmed by the pull, not a bug. CL1–CL4
+daily settlements are available 2010-01-04 through 2024-04-05 and no
+further; there is no free path to current data. If the study needs curve
+data past that date, Bloomberg/LSEG/Datastream access is not optional.
 
 **Timestamp check.** Ran `explore/01_timestamps.py` against a GDELT GKG sample
 (one Wednesday window, 2024-01-10, ~30h buffer rather than a full week —
@@ -128,8 +133,7 @@ include zero or negative lags purely as a timestamp diagnostic; anything used
 for inference is `lag >= 1`.
 
 **API keys never live in the repo.** `EIA_API_KEY` (and any future key) goes
-in a local `.env`, which is gitignored. `.env.example` documents the expected
-variable names with empty values.
+in a local `.env`, which is gitignored.
 
 ## Usage
 

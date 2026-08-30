@@ -5,14 +5,18 @@ this is the thin path: contracts 1-4 only, from EIA's `petroleum/pri/fut`
 route, workable with the Bayesian prior on kappa from Sec. XII-A.
 
 Requires EIA_API_KEY, read from the environment or a local `.env` file at the
-repo root (gitignored -- see `.env.example`). Never commit the key or paste
-it into chat; put it directly in `.env`:
+repo root (gitignored). Never commit the key or paste it into chat; put it
+directly in `.env`:
 
     EIA_API_KEY=your-key-here
 
 Usage:
     python scripts/pull_eia_curve.py --discover   # confirm series IDs first
     python scripts/pull_eia_curve.py               # pull and write parquet
+
+Note: EIA discontinued petroleum/pri/fut on 2024-04-05 (confirmed via the
+route's own metadata, endPeriod field). CL1-CL4 daily settlements are only
+available 2010-01-04..2024-04-05; there is no free path to current data.
 """
 
 import argparse
@@ -41,13 +45,13 @@ PAGE_LENGTH = 5000
 def load_api_key() -> str:
     key = os.environ.get("EIA_API_KEY")
     if key:
-        return key
+        return key.strip().strip("'\"")
     env_path = ROOT / ".env"
     if env_path.exists():
         for line in env_path.read_text().splitlines():
             line = line.strip()
             if line.startswith("EIA_API_KEY="):
-                key = line.split("=", 1)[1].strip()
+                key = line.split("=", 1)[1].strip().strip("'\"")
                 if key:
                     return key
     sys.exit(
