@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "csr"
+version = "0.1.0"
+description = "Curve State Recovery: latent state of the oil futures curve from price and news channels"
+requires-python = ">=3.10"
+dependencies = ["numpy>=1.24", "scipy>=1.10", "pandas>=2.0", "matplotlib>=3.7"]
+
+[project.optional-dependencies]
+fast = ["numba>=0.58"]
+data = ["requests>=2.31", "pyarrow>=14"]
+nlp  = ["transformers>=4.35", "torch>=2.0"]
+dev  = ["pytest>=7.4", "jupytext>=1.16"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+markers = ["slow: long-running estimation tests"]
