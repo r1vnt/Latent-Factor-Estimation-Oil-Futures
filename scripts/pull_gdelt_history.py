@@ -245,14 +245,26 @@ def fetch(ts):
     # shared one stalled completely, twice, with zero errors -- see that
     # script's comments) and a manual hard deadline (requests' read timeout
     # only fires on gaps between chunks, not total transfer time).
+    #
+    # 404 specifically returns immediately, no retry: GDELT's archive has
+    # genuine gaps (files that were never generated, mostly clustered right
+    # after the Feb 2015 launch while the system was stabilising), and a
+    # missing file will never stop being missing. Every OTHER non-200
+    # status stays in the retry loop, since a 5xx/429 could be transient --
+    # conflating them with 404 would mean a real but temporary server
+    # hiccup gets marked permanently unfetchable on the first bad response.
     url = BASE_URL.format(ts=ts)
     with requests.Session() as session:
         for attempt in range(1, RETRIES + 1):
             t0 = time.monotonic()
             try:
                 with session.get(url, timeout=TIMEOUT, stream=True) as r:
+                    if r.status_code == 404:
+                        return ts, None, "http 404"
                     if r.status_code != 200:
-                        return ts, None, f"http {r.status_code}"
+                        if attempt == RETRIES:
+                            return ts, None, f"http {r.status_code}"
+                        continue
                     chunks = []
                     for chunk in r.iter_content(chunk_size=1 << 16):
                         chunks.append(chunk)
@@ -291,10 +303,22 @@ def parse_gkg(ts, raw):
 
 
 def load_done() -> set[str]:
+    """Timestamps that never need attempting again: successes, and
+    confirmed-permanent 404s. Anything else ("failed" -- a transient
+    error that exhausted its retries within one session) stays eligible
+    for a future restart, since the condition that caused it might not
+    still hold. Without this distinction, every restart re-fetched every
+    timestamp that had ever 404'd, including genuine archive gaps that
+    will never stop 404ing -- four restarts had compounded this into a
+    growing, permanently-retried backlog concentrated at the chronological
+    start of the queue (the part that had been through the most restart
+    cycles), which is what produced a startling 90%+ failure rate right
+    after a restart and looked like server throttling until traced."""
     if not MANIFEST_PATH.exists():
         return set()
     with open(MANIFEST_PATH, newline="") as f:
-        return {row["ts"] for row in csv.DictReader(f) if row["status"] == "ok"}
+        return {row["ts"] for row in csv.DictReader(f)
+               if row["status"] in ("ok", "not_found")}
 
 
 def append_manifest(entries: list[tuple[str, str, int]]):
@@ -407,7 +431,8 @@ def main():
                 ts, raw, err = fut.result()
                 if raw is None:
                     failed.append(ts)
-                    manifest_buffer.append((ts, "failed", 0))
+                    status = "not_found" if err == "http 404" else "failed"
+                    manifest_buffer.append((ts, status, 0))
                     continue
                 try:
                     rows = parse_gkg(ts, raw)
