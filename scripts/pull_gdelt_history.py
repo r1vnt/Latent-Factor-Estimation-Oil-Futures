@@ -112,11 +112,26 @@ CHECKPOINT_EVERY = 25   # flush manifest + accumulated output every N files
 # extractives" name suggests. Dropping it took that day's candidate count
 # from 2703 to 1270 -- still comfortably inside the 1000-2000 target -- and
 # a re-sampled eyeball check came back clean (see explore/06 for both runs).
+#
+# ENV_OIL, WB_539_OIL_AND_GAS_POLICY_STRATEGY_AND_INSTITUTIONS, and
+# WB_548_PPP_IN_OIL_AND_GAS removed on the same evidence pattern, caught by
+# a routine check after ~1.4M accumulated rows (throughput was running
+# ~3.4x the validation-day rate -- worth checking on its own). A 50-row
+# random sample from the live corpus, eyeballed, was >20% clearly
+# unrelated -- Hillary Clinton campaign coverage, a Zillow listing, a
+# biopharma press release, restaurant reviews, arthritis symptoms, a
+# sewage spill, Brazil impeachment coverage, drag racing -- and tracing
+# each back showed ENV_OIL present in 73% of all matches in a 5000-row
+# sample and the SOLE signal (no corroboration) for 28.8% of them;
+# WB_539+WB_548 (which co-occur as a pair) sole-signal for another 6.9%.
+# The initially-suspected mechanism (the "brent"/"oil" URL tokens) turned
+# out not to be it: URL-only matches with no theme corroboration were only
+# 1.8% of the corpus at this sample size. Dropping all three theme codes
+# leaves 63.4% of the prior corpus -- ~3200/day estimated, still
+# comfortably inside the target band -- re-validated clean, see
+# explore/06 and explore/07 (retroactive re-filter + re-validation).
 OIL_THEME_CODES = frozenset({
-    "ENV_OIL",                                     # 3212
     "ENV_NATURALGAS",                              # 1620
-    "WB_539_OIL_AND_GAS_POLICY_STRATEGY_AND_INSTITUTIONS",  # 1615
-    "WB_548_PPP_IN_OIL_AND_GAS",                   # 1494
     "ECON_OILPRICE",                               # 1128
     "FUELPRICES",                                  # 596
     "TAX_FNCACT_OILMAN",                           # 558
