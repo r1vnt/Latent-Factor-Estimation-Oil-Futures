@@ -284,11 +284,29 @@ def append_stage3_log(rows: list[dict]):
     df.to_parquet(STAGE3_LOG, index=False)
 
 
-# ------------------------------------------------------------------- day loop
+class Stage1ReadError(Exception):
+    """Stage 1's output couldn't be read after retries. Distinct from 'this
+    day genuinely has zero candidates' -- callers must NOT mark the day
+    done in stage 2's manifest on this, or a transient read failure would
+    silently and permanently drop a real day's data."""
+
+
 def candidates_for_day(day: str) -> list[str]:
     if not STAGE1_OUTPUT.exists():
         return []
-    df = pd.read_parquet(STAGE1_OUTPUT, columns=["timestamp", "DocumentIdentifier"])
+    # Stage 1 writes this file atomically (write-then-rename) now, but a
+    # short retry here is cheap insurance against any future write path
+    # that isn't -- the first version of this crashed the whole process on
+    # one torn read after 171 days of real progress.
+    for attempt in range(3):
+        try:
+            df = pd.read_parquet(STAGE1_OUTPUT, columns=["timestamp", "DocumentIdentifier"])
+            break
+        except Exception as e:
+            if attempt == 2:
+                raise Stage1ReadError(f"could not read {STAGE1_OUTPUT} after "
+                                      f"3 attempts: {e}") from e
+            time.sleep(2.0)
     day_ts = pd.Timestamp(day, tz="UTC")
     mask = (df["timestamp"] >= day_ts) & (df["timestamp"] < day_ts + pd.Timedelta(days=1))
     return df.loc[mask, "DocumentIdentifier"].dropna().unique().tolist()
@@ -412,7 +430,14 @@ def main():
             continue
 
         for day in todo:
-            I_t, n_t, oc = process_day(day)
+            try:
+                I_t, n_t, oc = process_day(day)
+            except Stage1ReadError as e:
+                # Not marked done: retried on the next poll instead of
+                # silently losing a real day's data to a transient read.
+                print(f"  {day}: {e} -- skipping this pass, will retry",
+                     file=sys.stderr)
+                continue
             print(f"  {day}: I_t={I_t} n_t={n_t}  "
                  f"[fetch_failed={oc['fetch_failed']} no_text={oc['no_text']} "
                  f"lang_skip={oc['lang_skip']} duplicate={oc['duplicate']}]  "

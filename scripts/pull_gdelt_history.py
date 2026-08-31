@@ -62,6 +62,7 @@ Usage:
 import argparse
 import csv
 import io
+import os
 import re
 import sys
 import time
@@ -308,7 +309,15 @@ def flush_output(new_records: list[tuple]) -> int:
         combined = new_df
     combined = combined.drop_duplicates(subset=["DocumentIdentifier"])
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    combined.to_parquet(OUT_PATH, index=False)
+    # Write-then-rename, not a direct write: stage 2 runs concurrently and
+    # polls this same file. to_parquet() writing in place gave a reader a
+    # torn file mid-write ("Parquet magic bytes not found in footer"),
+    # crashing stage 2 after 171 days of real progress. os.replace() is
+    # atomic on both Windows and POSIX, so a concurrent reader only ever
+    # sees the complete old file or the complete new one, never a partial.
+    tmp_path = OUT_PATH.with_suffix(".tmp")
+    combined.to_parquet(tmp_path, index=False)
+    os.replace(tmp_path, OUT_PATH)
     return len(combined)
 
 
