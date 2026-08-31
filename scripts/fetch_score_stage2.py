@@ -162,7 +162,12 @@ def _robots_allows(url: str) -> bool:
                 rp.parse(resp.text.splitlines())
             else:
                 rp = None   # no restriction on a missing/erroring robots.txt
-        except requests.RequestException:
+        except Exception:
+            # Broad, deliberately: real servers send genuinely arbitrary
+            # malformed responses (see fetch_one's comment on the redirect-
+            # header UnicodeDecodeError that crashed this process once
+            # already) -- requests.RequestException doesn't cover
+            # everything requests' own internals can raise.
             rp = None
         with _robots_cache_lock:
             _robots_cache[domain] = rp
@@ -181,7 +186,18 @@ def fetch_one(url: str) -> tuple[bool, int | None, str | None, str | None]:
         if r.status_code == 200 and r.text:
             return True, r.status_code, r.text, None
         return False, r.status_code, None, f"http_{r.status_code}"
-    except requests.RequestException as e:
+    except Exception as e:
+        # Broad, deliberately: caught requests.RequestException here once,
+        # then a real server sent a redirect Location header with non-UTF8
+        # bytes and requests' own internals raised a bare
+        # UnicodeDecodeError while resolving it -- not a RequestException
+        # subclass, so it propagated past the narrower catch, through the
+        # worker thread's future, and crashed the whole process 208 days
+        # into a run. We're fetching arbitrary content from thousands of
+        # uncontrolled real-world servers; there is no enumerable set of
+        # "expected" failure modes, so one candidate failing broadly here
+        # is the correct scope for the catch -- it costs a candidate, not
+        # the run.
         return False, None, None, type(e).__name__
 
 
@@ -342,33 +358,60 @@ def process_day(day: str) -> tuple[int, int, dict[str, int]]:
             if n_pending >= TARGET_SUCCESSES:
                 fut.cancel()
                 continue
-            fetch_ok, status, html, err = fut.result()
-            row = {
-                "date": day, "url_hash": url_hash(url),
-                "source_domain": source_domain(url),
-                "http_status": status, "extracted_chars": 0,
-                "finbert_score": None, "outcome": None,
-            }
-            if not fetch_ok:
-                row["outcome"] = "fetch_failed"
-                log_rows.append(row)
-                continue
 
-            lede, n_chars = extract_lede(html)
-            row["extracted_chars"] = n_chars
-            if not lede:
-                row["outcome"] = "no_text"
-                log_rows.append(row)
-                continue
+            # Outermost catch-all, on top of fetch_one's and extract_lede's
+            # own: 208 days into the relaunched run, an unhandled
+            # UnicodeDecodeError from inside requests' redirect handling
+            # crashed the whole process on one candidate. That specific
+            # path is fixed, but the general lesson stands -- we are
+            # fetching and parsing arbitrary content from thousands of
+            # uncontrolled real servers, there is no enumerable set of
+            # "expected" failures, and one candidate erroring here must
+            # cost a candidate, never the run.
+            try:
+                fetch_ok, status, html, err = fut.result()
+                row = {
+                    "date": day, "url_hash": url_hash(url),
+                    "source_domain": source_domain(url),
+                    "http_status": status, "extracted_chars": 0,
+                    "finbert_score": None, "outcome": None,
+                }
+                if not fetch_ok:
+                    row["outcome"] = "fetch_failed"
+                    log_rows.append(row)
+                    continue
 
-            if not is_english(lede):
-                row["outcome"] = "lang_skip"
-                log_rows.append(row)
-                continue
+                try:
+                    lede, n_chars = extract_lede(html)
+                except Exception as e:
+                    print(f"  [{day}] extract_lede failed on {url}: "
+                         f"{type(e).__name__}: {e}", file=sys.stderr)
+                    row["outcome"] = "no_text"
+                    log_rows.append(row)
+                    continue
+                row["extracted_chars"] = n_chars
+                if not lede:
+                    row["outcome"] = "no_text"
+                    log_rows.append(row)
+                    continue
 
-            lang_ok.append((len(log_rows), lede))
-            n_pending += 1
-            log_rows.append(row)   # outcome resolved after dedup, below
+                if not is_english(lede):
+                    row["outcome"] = "lang_skip"
+                    log_rows.append(row)
+                    continue
+
+                lang_ok.append((len(log_rows), lede))
+                n_pending += 1
+                log_rows.append(row)   # outcome resolved after dedup, below
+            except Exception as e:
+                print(f"  [{day}] unhandled error processing {url}: "
+                     f"{type(e).__name__}: {e}", file=sys.stderr)
+                log_rows.append({
+                    "date": day, "url_hash": url_hash(url),
+                    "source_domain": source_domain(url), "http_status": None,
+                    "extracted_chars": 0, "finbert_score": None,
+                    "outcome": "fetch_failed",
+                })
 
     # MinHash dedup over the day's language-passing survivors, in memory.
     accepted_hashes: list[MinHash] = []
