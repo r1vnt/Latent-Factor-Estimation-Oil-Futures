@@ -26,10 +26,11 @@ from fetch_score_stage2 import STAGE3_LOG   # noqa: E402
 # %%
 log = pd.read_parquet(STAGE3_LOG)
 log["year"] = log["date"].str[:4].astype(int)
-success = log[log["finbert_ok"]].copy()
+success = log[log["outcome"] == "scored"].copy()
 
 print(f"{len(log):,} candidates logged, {len(success):,} successfully scored "
      f"({len(success) / max(len(log), 1):.1%} success rate)")
+print(log["outcome"].value_counts())
 
 by_year_source = (success.groupby(["year", "source_domain"]).size()
                   .rename("n").reset_index())

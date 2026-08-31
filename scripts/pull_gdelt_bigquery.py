@@ -1,17 +1,20 @@
-"""Extract EIA-release-related GKG rows via GDELT's public BigQuery table.
+"""DORMANT -- superseded by scripts/pull_gdelt_history.py for the corpus
+pull (GCP setup was dropped; local streaming does the same column
+projection with no account). Kept for the WPSR_PREDICATE query pattern,
+which is still the right tool if a BigQuery route is ever revisited for
+the timestamp diagnostic specifically -- not for corpus building.
 
-Replaces the file-download route for anything beyond a one-week sample: the
-2015-2024 GKG archive is ~2TB compressed (see the week-based estimate in
-explore/03_gate2_diagnostics.py, cross-checked against three eras), and
-scripts/pull_gdelt_sample.py would discard 99%+ of every file after
-extracting a handful of oil rows. BigQuery filters server-side, so only
-matching rows cross the wire -- a few GB instead of terabytes, minutes
-instead of days.
+Extract WPSR-release-related GKG rows via GDELT's public BigQuery table.
 
-Same precision-first predicate validated locally in
-explore/03_gate2_diagnostics.py step 3: an oil/crude term AND an inventory
-term together (not "eia" alone, which pulls in EIA's other publications --
-STEO forecasts, solar, ethanol -- unrelated to the WPSR).
+Same WPSR_PREDICATE validated locally in explore/03_gate2_diagnostics.py
+step 3: an oil/crude term AND an inventory term together (not "eia" alone,
+which pulls in EIA's other publications -- STEO forecasts, solar, ethanol
+-- unrelated to the WPSR). This isolates ~15 documents/week reporting one
+specific release; it is NOT a general oil-news filter and must not be used
+as one -- that mistake, made once with this exact predicate, cost 44
+minutes of a corpus pull before being caught (see
+scripts/pull_gdelt_history.py's OIL_CORPUS_PREDICATE, which is the
+broad filter for that job).
 
 Table/schema confirmed from GDELT's own BigQuery documentation and worked
 examples (not memory alone -- see blog.gdeltproject.org/announcing-
@@ -52,7 +55,11 @@ TABLE = "gdelt-bq.gdeltv2.gkg_partitioned"
 START_DATE = "2015-02-18"   # GKG 2.0 launch
 END_DATE = "2025-01-01"     # exclusive; matches the 2015-2024 window
 
-# Same conjunctive predicate as explore/03_gate2_diagnostics.py step 3.
+# WPSR_PREDICATE: same conjunctive pattern as explore/03_gate2_diagnostics.py
+# step 3. Isolates WPSR-reporting articles specifically -- see the module
+# docstring's warning before reusing this as a general oil-news filter.
+WPSR_OIL_TERM_SQL = r"crude|petroleum"
+WPSR_INVENTORY_TERM_SQL = r"inventor|stockpile|petroleum status|weekly petroleum"
 QUERY = f"""
 SELECT
   DATE AS v21date,
@@ -65,12 +72,11 @@ WHERE _PARTITIONTIME >= TIMESTAMP("{START_DATE}")
   AND _PARTITIONTIME <  TIMESTAMP("{END_DATE}")
   AND (
     REGEXP_CONTAINS(LOWER(CONCAT(IFNULL(DocumentIdentifier, ''), ' ',
-                                 IFNULL(V2Themes, ''))), r'crude|petroleum')
+                                 IFNULL(V2Themes, ''))), r'{WPSR_OIL_TERM_SQL}')
   )
   AND (
     REGEXP_CONTAINS(LOWER(CONCAT(IFNULL(DocumentIdentifier, ''), ' ',
-                                 IFNULL(V2Themes, ''))),
-                    r'inventor|stockpile|petroleum status|weekly petroleum')
+                                 IFNULL(V2Themes, ''))), r'{WPSR_INVENTORY_TERM_SQL}')
   )
 """
 

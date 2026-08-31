@@ -133,13 +133,22 @@ print(f"\nsaved {FIG / '03_gate2_lag_histogram.png'}")
 # `01_timestamps.py` uses by default. This is confirmation, not the decisive
 # test ((1) already settles the risk direction); it's here because the raw
 # 37.35% number deserves a clean rebuttal on the same kind of evidence.
+#
+# WPSR_PREDICATE, not OIL_CORPUS_PREDICATE: this pair exists to isolate
+# articles reporting one specific weekly release (~15 docs/week) for the
+# timestamp diagnostic. It was run once, briefly, as the general corpus
+# filter for the news pipeline's Stage 1 -- ~2.7 candidates/day against a
+# target of 100 -- before being caught and reverted. The two predicates
+# must not be confused; the corpus filter lives in
+# scripts/pull_gdelt_history.py as OIL_CORPUS_PREDICATE and is deliberately
+# much broader.
 
 # %%
-OIL_TERM = re.compile(r"crude|petroleum", re.IGNORECASE)
-INV_TERM = re.compile(r"inventor|stockpile|petroleum status|weekly petroleum",
-                      re.IGNORECASE)
-tight_mask = (df["text"].str.contains(OIL_TERM, regex=True)
-             & df["text"].str.contains(INV_TERM, regex=True))
+WPSR_OIL_TERM = re.compile(r"crude|petroleum", re.IGNORECASE)
+WPSR_INVENTORY_TERM = re.compile(
+    r"inventor|stockpile|petroleum status|weekly petroleum", re.IGNORECASE)
+tight_mask = (df["text"].str.contains(WPSR_OIL_TERM, regex=True)
+             & df["text"].str.contains(WPSR_INVENTORY_TERM, regex=True))
 rel_tight = df[tight_mask].copy()
 rel_tight = rel_tight[rel_tight.timestamp.dt.dayofweek == 2]
 release_time_t = rel_tight.timestamp.dt.normalize() + pd.Timedelta(hours=10, minutes=30)

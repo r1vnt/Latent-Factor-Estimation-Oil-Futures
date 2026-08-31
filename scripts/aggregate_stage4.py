@@ -1,38 +1,47 @@
 """Stage 4 of the locked news-pipeline spec: the daily aggregate table
 that is the model's actual input.
 
-Joins stage 3's per-document log (date, url_hash, fetch_ok, finbert_ok,
-finbert_score, ...) back to stage 1's output (DocumentIdentifier, Themes,
-tone dims) via url_hash -- stage 3 doesn't carry the URL or themes itself,
-so this recomputes the same hash stage 2 used and joins on it.
+Joins stage 3's per-document log (date, url_hash, outcome, finbert_score,
+...) back to stage 1's output (DocumentIdentifier, Themes, tone dims) via
+url_hash -- stage 3 doesn't carry the URL or themes itself, so this
+recomputes the same hash stage 2 used and joins on it. I_t comes directly
+from stage 2's manifest, where it was already computed from the day's full
+match set (not the 100-candidate draw) with (source_domain, normalised
+slug) dedup -- not recomputed here.
 
 Per day:
-    sent_mean    mean FinBERT score, successful scores only
+    I_t          all matching docs that day, deduped -- from stage 2's
+                 manifest. Feeds the process-noise intensity scaling.
+    n_t          count of outcome == "scored". Never the candidate count,
+                 never rescaled -- a different quantity from I_t, and R_t
+                 widening on a thin-n_t day is correct behaviour, not bias.
+    sent_mean    mean FinBERT score over outcome == "scored" rows
     disp         within-day dispersion sigma_t (std of FinBERT scores) --
                  feeds R_t = sigma_t^2 / n_t (eq. 23)
-    n_t          count of successful scores. Successful scores only --
-                 never the candidate count, never rescaled. This is a
-                 different quantity from the quarter-sample undercount
-                 pull_gdelt_history.py's docstring used to warn about: that
-                 was about using stage 1's raw match count as a volume
-                 proxy, which this pipeline doesn't do. n_t here is
-                 genuinely how many documents were averaged, and R_t
-                 widening on a thin day is correct behaviour, not bias.
     theme shares supply disruption / OPEC policy / geopolitics / demand --
-                 fraction of that day's *successfully scored* documents
-                 whose V1Themes match each category. The mapping itself
-                 isn't specified verbatim anywhere upstream; it's a
-                 keyword-substring classifier against real GDELT taxonomy
-                 codes, documented below, not asserted as authoritative.
+                 fraction of that day's scored documents whose V1Themes
+                 match each category. The mapping isn't specified verbatim
+                 anywhere upstream; it's a keyword-substring classifier
+                 against real GDELT taxonomy codes, documented below, not
+                 asserted as authoritative. WB_507_ENERGY_AND_EXTRACTIVES
+                 is deliberately absent here, same as from the corpus
+                 predicate itself -- empirically identified as too broad
+                 (71.5% of one day's raw candidates, see
+                 pull_gdelt_history.py) to carry signal about anything,
+                 including which theme bucket a document belongs in.
     tone dims    the six V1.5Tone components, averaged over the same
-                 successfully-scored subset as sent_mean, for an
-                 apples-to-apples free lexicon cross-check (Sec. XIII)
-    intensity    standardised log(1 + n_t)
+                 scored subset as sent_mean, for an apples-to-apples free
+                 lexicon cross-check (Sec. XIII)
+    intensity    standardised log(1 + I_t) -- I_t, not n_t: n_t saturates
+                 near 60 by design once a day has enough candidates, so it
+                 stops carrying information about true volume past that
+                 point; I_t doesn't.
 
 Dedup happens before any of this: stage 1 already dedups by
-DocumentIdentifier at flush time and stage 2 samples from `.unique()`
-URLs, so this re-dedups defensively rather than trusting that upstream
-invariant blindly.
+DocumentIdentifier at flush time, stage 2's I_t computation dedups on
+(source_domain, normalised slug), and stage 2's MinHash pass dedups the
+scored set on near-duplicate content. This re-dedups on url_hash
+defensively rather than trusting those upstream invariants blindly.
 
 Usage: python scripts/aggregate_stage4.py
 Output: data/stage4_daily.parquet
@@ -49,7 +58,7 @@ import pandas as pd
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pull_gdelt_history import OUT_PATH as STAGE1_OUTPUT   # noqa: E402
 from pull_gdelt_history import TONE_COLS                    # noqa: E402
-from fetch_score_stage2 import STAGE3_LOG                   # noqa: E402
+from fetch_score_stage2 import STAGE2_MANIFEST, STAGE3_LOG   # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_PATH = ROOT / "data" / "stage4_daily.parquet"
@@ -73,7 +82,7 @@ THEME_CATEGORIES = {
         re.IGNORECASE),
     "demand": re.compile(
         r"ECON_GROWTH|ECON_GDP|ECON_CONSUMER|MANUFACTURING|ECON_INTEREST_RATE|"
-        r"ECON_STOCKMARKET|TRADE_DISPUTE|WB_507_ENERGY_AND_EXTRACTIVES",
+        r"ECON_STOCKMARKET|TRADE_DISPUTE",
         re.IGNORECASE),
 }
 
@@ -85,6 +94,8 @@ def url_hash(url: str) -> str:
 def main():
     if not STAGE1_OUTPUT.exists() or not STAGE3_LOG.exists():
         sys.exit(f"missing input: need both {STAGE1_OUTPUT} and {STAGE3_LOG}")
+    if not STAGE2_MANIFEST.exists():
+        sys.exit(f"missing input: need {STAGE2_MANIFEST} (has I_t per day)")
 
     s1 = pd.read_parquet(STAGE1_OUTPUT)
     s1 = s1.drop_duplicates(subset=["DocumentIdentifier"])
@@ -95,7 +106,7 @@ def main():
 
     joined = s3.merge(s1[["url_hash", "Themes", *TONE_COLS]], on="url_hash",
                       how="left")
-    scored = joined[joined["finbert_ok"]].copy()
+    scored = joined[joined["outcome"] == "scored"].copy()
     if scored.empty:
         sys.exit("no successfully-scored documents in stage 3 log yet")
 
@@ -110,9 +121,12 @@ def main():
         **{f"theme_{cat}": (f"theme_{cat}", "mean") for cat in THEME_CATEGORIES},
         **{c: (c, "mean") for c in TONE_COLS},
     ).reset_index()
-
     agg["disp"] = agg["disp"].fillna(0.0)   # a single-document day has no spread
-    agg["intensity"] = np.log1p(agg["n_t"])
+
+    it = pd.read_csv(STAGE2_MANIFEST, dtype={"day": str})[["day", "I_t"]]
+    agg = agg.merge(it, left_on="date", right_on="day", how="left").drop(columns="day")
+
+    agg["intensity"] = np.log1p(agg["I_t"])
     agg["intensity"] = (agg["intensity"] - agg["intensity"].mean()) / agg["intensity"].std()
 
     agg["date"] = pd.to_datetime(agg["date"], format="%Y%m%d")
@@ -122,6 +136,7 @@ def main():
     agg.to_parquet(OUT_PATH, index=False)
     print(f"wrote {len(agg):,} days -> {OUT_PATH}")
     print(f"  span: {agg.date.min().date()} .. {agg.date.max().date()}")
+    print(f"  I_t: mean={agg.I_t.mean():.1f} median={agg.I_t.median():.0f}")
     print(f"  n_t: mean={agg.n_t.mean():.1f} median={agg.n_t.median():.0f} "
          f"min={agg.n_t.min()} max={agg.n_t.max()}")
     for cat in THEME_CATEGORIES:

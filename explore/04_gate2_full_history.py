@@ -17,10 +17,17 @@
 #
 # NOTE: written ahead of the extract landing (blocked on GCP credentials
 # setup, which needs the user's own action -- see pull_gdelt_bigquery.py's
-# docstring). Structurally mirrors 03_gate2_diagnostics.py's approach but
-# not yet run against real data; re-check the release-time math below once
-# it is, since this version needs the release DATE per row rather than a
-# fixed single week.
+# docstring, now marked dormant in favour of the local-streaming route).
+# Structurally mirrors 03_gate2_diagnostics.py's approach but not yet run
+# against real data; re-check the release-time math below once it is,
+# since this version needs the release DATE per row rather than a fixed
+# single week.
+#
+# This is WPSR_PREDICATE territory, not OIL_CORPUS_PREDICATE: the filter
+# here isolates WPSR-reporting articles for the timestamp diagnostic. The
+# general oil-news corpus (scripts/pull_gdelt_history.py, feeding
+# scripts/aggregate_stage4.py) uses a deliberately much broader filter --
+# using this one there gave ~2.7 candidates/day against a target of 100.
 
 # %%
 from pathlib import Path
@@ -40,10 +47,10 @@ RELEASE_HOUR, RELEASE_MIN = 10, 30
 # %% [markdown]
 # ## Load and compute lag relative to each row's own Wednesday release
 #
-# The BigQuery query already applied the conjunctive oil-term AND
-# inventory-term predicate server-side, so this is release-candidate
-# documents only -- no local re-filtering needed, just the day-of-week
-# restriction the timestamp check itself needs.
+# The BigQuery query already applied WPSR_PREDICATE (oil-term AND
+# inventory-term) server-side, so this is release-candidate documents
+# only -- no local re-filtering needed, just the day-of-week restriction
+# the timestamp check itself needs.
 
 # %%
 df = pd.read_parquet(DATA)

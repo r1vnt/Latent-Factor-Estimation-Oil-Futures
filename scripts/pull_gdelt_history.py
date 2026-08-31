@@ -18,10 +18,31 @@ V2RelatedImages are never written:
     V1.5Tone              all six dims, kept as the free lexicon cross-check
                          for Sec. XIII, not just the headline tone value
 
-Same conjunctive oil predicate as pull_gdelt_bigquery.py and
-explore/03_gate2_diagnostics.py step 3 (oil/crude term AND inventory term,
-not "eia" alone), now matched against V1Themes instead of V2Themes -- same
-underlying taxonomy codes, so the predicate's behaviour carries over.
+OIL_CORPUS_PREDICATE (OR of empirically-derived theme codes and URL token
+matches) -- NOT WPSR_PREDICATE, the conjunctive oil-AND-inventory filter
+in pull_gdelt_bigquery.py and explore/03_gate2_diagnostics.py step 3.
+WPSR_PREDICATE was built and validated for one job: isolating articles
+reporting the Weekly Petroleum Status Report, for the Gate-2 timestamp
+test -- it gave 15 documents/week, exactly right for that, and was run
+here for one session (44min, since discarded) before being caught as
+catastrophically wrong for a daily sentiment corpus: ~2.7 candidates/day
+against a target of 100, most days with n_t < 2 where R_t = sigma_t^2/n_t
+isn't even defined. The two predicates serve different purposes, are
+named differently so they can't be confused again, and must stay
+different -- WPSR_PREDICATE remains correct and unchanged for the Gate-2
+scripts.
+
+OIL_THEME_CODES is not a guessed keyword list: derived by downloading one
+full-resolution day (2024-01-09, a non-release Tuesday, 96 files,
+explore/06_derive_oil_theme_codes.py), counting every V1Themes code across
+167,487 rows, and selecting the energy/oil-relevant ones from the ~9,800
+observed by inspection -- screening out substring false positives a naive
+regex would have caught (POLITICAL_TURMOIL via "turm-OIL", the GASTRO*
+disease family via "gas", ALOPECIA via "al-OPEC-ia", SOIL_MANAGEMENT via
+"s-OIL", OLIVE_OIL/COCONUT_OIL, TEAR_GAS) and excluding non-oil energy
+sources (solar/wind/nuclear/geothermal/biomass) that would dilute the
+corpus with off-topic renewable-energy stories. Frequencies from that
+sample are recorded next to each code below.
 
 A checkpoint manifest (data/gdelt_history_manifest.csv) records every
 timestamp already processed, so a restart after any interruption resumes
@@ -72,11 +93,108 @@ HARD_DEADLINE = 60
 STALL_LIMIT = 120
 CHECKPOINT_EVERY = 25   # flush manifest + accumulated output every N files
 
-# Same conjunctive predicate as pull_gdelt_bigquery.py's QUERY and
-# explore/03_gate2_diagnostics.py step 3.
-OIL_TERM = re.compile(r"crude|petroleum", re.IGNORECASE)
-INV_TERM = re.compile(r"inventor|stockpile|petroleum status|weekly petroleum",
-                      re.IGNORECASE)
+# OIL_THEME_CODES: sampled 2024-01-09 (Tuesday, non-release day), 96 files,
+# 167,487 rows, ~9,800 distinct codes observed. Frequency = row count in
+# that one-day sample; a code's absence from GDELT's globally-top-300 by
+# raw frequency does NOT mean it's rare in oil news specifically -- generic
+# administrative/crisis/governance tags (TAX_FNCACT_*, CRISISLEX_*, WB_*
+# health/education) dominate the overall top 300, so this was derived by
+# searching all observed codes, not just the top 300.
+#
+# WB_507_ENERGY_AND_EXTRACTIVES was in the first cut and removed after step-6
+# validation on 2024-01-15 (quarter-sample, ordinary day): it accounted for
+# 71.5% of that day's candidates (1933/2703) and 53% matched via it ALONE,
+# with nothing else corroborating -- including a ranked list of Frasier
+# episodes, an Elvis festival writeup, a cookware sale, and an NHS ward
+# occupancy story, none remotely oil-related. GDELT's classifier applies
+# this broad World Bank sector code far more liberally than the "energy
+# extractives" name suggests. Dropping it took that day's candidate count
+# from 2703 to 1270 -- still comfortably inside the 1000-2000 target -- and
+# a re-sampled eyeball check came back clean (see explore/06 for both runs).
+OIL_THEME_CODES = frozenset({
+    "ENV_OIL",                                     # 3212
+    "ENV_NATURALGAS",                              # 1620
+    "WB_539_OIL_AND_GAS_POLICY_STRATEGY_AND_INSTITUTIONS",  # 1615
+    "WB_548_PPP_IN_OIL_AND_GAS",                   # 1494
+    "ECON_OILPRICE",                               # 1128
+    "FUELPRICES",                                  # 596
+    "TAX_FNCACT_OILMAN",                           # 558
+    "WB_2298_REFINERIES",                          # 297
+    "WB_549_OIL_AND_GAS_SYSTEMS",                  # 252
+    "ECON_HEATINGOIL",                             # 231
+    "MANMADE_DISASTER_GAS_EXPLOSION",              # 214
+    "ECON_GASOLINEPRICE",                          # 195
+    "WB_544_MID_AND_DOWNSTREAM_OIL_AND_GAS",       # 135
+    "ENV_BIOFUEL",                                 # 129 -- oil-substitute transport fuel
+    "MANMADE_DISASTER_OIL_SPILL",                  # 122
+    "WB_1768_OIL_AND_GAS_PIPELINE",                # 118
+    "WB_1751_LIQUEFIED_NATURAL_GAS",               # 91
+    "ECON_NATGASPRICE",                            # 78
+    "WB_532_BIOFUELS_ENERGY",                      # 78
+    "WB_2290_OIL_AND_GAS_EXPORT",                  # 76
+    "WB_1815_FUEL_TAXES",                          # 50 -- moves gasoline/diesel demand
+    "WB_551_GAS_TRANSPORTATION_STORAGE_AND_DISTRIBUTION",  # 49
+    "WB_1627_ENERGY_SUBSIDIES",                    # 47 -- commonly fuel subsidies in practice
+    "WB_1628_FUEL_SUBSIDIES",                      # 40
+    "WB_2291_OIL_AND_GAS_DISTRIBUTION",            # 38
+    "WB_2273_UPSTREAM_OIL_AND_GAS",                # 36
+    "WB_512_GAS_FIRED_POWER",                      # 32
+    "WB_545_NATIONAL_OIL_COMPANIES",               # 26
+    "WB_540_GOVERNANCE_FOR_OIL_AND_GAS",           # 26
+    "WB_2289_OIL_AND_GAS_REFINING",                # 13
+    "WB_1702_OILFIELD_SERVICES",                   # 12
+    "WB_1753_GAS_TO_POWER",                        # 5
+    "WB_2304_OFFSHORE_OIL_AND_GAS_PRODUCTION",     # 3
+    "WB_2292_OIL_AND_GAS_PRODUCTION_SHARING",      # 1
+    "WB_2294_PROFIT_OIL",                          # 1
+    "WB_513_OIL_FIRED_POWER",                      # 1
+    # Excluded, not oil/gas: WB_525_RENEWABLE_ENERGY, WB_528_SOLAR_ENERGY,
+    # WB_509_NUCLEAR_ENERGY, WB_529_WIND_ENERGY, WB_530_GEOTHERMAL_ENERGY,
+    # WB_531_BIOMASS_ENERGY, WB_533_ENERGY_EFFICIENCY, WB_2428_ICT_AND_ENERGY,
+    # WB_2122_SMART_ENERGY, WB_1767_ENERGY_FINANCE, WB_521_ENERGY_ACCESS,
+    # WB_520_PPP_IN_ENERGY_AND_POWER, WB_582_GREENHOUSE_GAS_ACCOUNTING,
+    # MANMADE_DISASTER_GAS_MAIN (local utility incident, not market-moving).
+})
+
+# URL token match: exact tokens after splitting DocumentIdentifier on
+# non-alphanumeric characters, not substrings -- "oil" as a substring
+# catches "oilers", "spoiled", "toilet"; as a token bounded by /, -, ., _
+# it does not.
+URL_OIL_TOKENS = frozenset({
+    "crude", "opec", "petroleum", "wti", "brent", "refinery", "refineries",
+    "gasoline", "diesel", "barrel", "barrels", "oil", "oilprice",
+})
+_TOKEN_SPLIT = re.compile(r"[^a-zA-Z0-9]+")
+
+
+def theme_matches(v1themes: str) -> bool:
+    return any(code in OIL_THEME_CODES for code in v1themes.split(";"))
+
+
+def url_matches(url: str) -> bool:
+    tokens = _TOKEN_SPLIT.split(url.lower())
+    return any(t in URL_OIL_TOKENS for t in tokens)
+
+
+_SLUG_DATE = re.compile(r"/\d{4}/\d{1,2}/\d{1,2}/")
+_SLUG_ISODATE = re.compile(r"/\d{4}-\d{1,2}-\d{1,2}(?=/|$)")
+_SLUG_LONGNUM = re.compile(r"-?\d{4,}")
+_SLUG_NUMSEGMENT = re.compile(r"/\d+(?=/|$)")
+
+
+def normalize_slug(url: str) -> str:
+    """URL path, with dates/IDs/trailing numerics stripped -- for I_t dedup
+    on (source_domain, normalised slug): catches near-duplicate paths on
+    the same site (tracking params, timestamped variants), which is the
+    only dedup possible before any article text has been fetched."""
+    from urllib.parse import urlparse
+    path = urlparse(url).path.lower()
+    path = _SLUG_DATE.sub("/", path)
+    path = _SLUG_ISODATE.sub("", path)
+    path = _SLUG_LONGNUM.sub("", path)
+    path = _SLUG_NUMSEGMENT.sub("/", path)
+    return path.rstrip("/")
+
 
 COL_DATE = 1
 COL_SOURCE_NAME = 3
@@ -147,11 +265,11 @@ def parse_gkg(ts, raw):
         if len(row) < MIN_COLS:
             continue
         docid, themes = row[COL_DOCID], row[COL_V1THEMES]
-        blob = f"{docid} {themes}"
-        if OIL_TERM.search(blob) and INV_TERM.search(blob):
+        if theme_matches(themes) or url_matches(docid):
+            blob = f"{docid} {themes}".lower()
             tone_vals = row[COL_TONE].split(",") if row[COL_TONE] else []
             tone_vals = (tone_vals + [""] * 6)[:6]   # pad/truncate defensively
-            rows.append((row[COL_DATE], docid, blob.lower(), row[COL_SOURCE_NAME],
+            rows.append((row[COL_DATE], docid, blob, row[COL_SOURCE_NAME],
                         themes, *tone_vals))
     return rows
 
