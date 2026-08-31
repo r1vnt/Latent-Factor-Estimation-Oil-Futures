@@ -314,10 +314,25 @@ def flush_output(new_records: list[tuple]) -> int:
     # torn file mid-write ("Parquet magic bytes not found in footer"),
     # crashing stage 2 after 171 days of real progress. os.replace() is
     # atomic on both Windows and POSIX, so a concurrent reader only ever
-    # sees the complete old file or the complete new one, never a partial.
+    # sees the complete old file or the complete new one, never a partial
+    # -- but on Windows specifically, the replace itself can fail with
+    # PermissionError ([WinError 5] Access is denied) if stage 2 happens to
+    # have the old file open for reading at that exact instant, a real
+    # POSIX/Windows behavioural difference (POSIX allows renaming over an
+    # open file; Windows generally doesn't). That's what crashed this
+    # process 1375 files into the relaunch. It's transient -- stage 2 only
+    # holds the file open for the duration of one read -- so retry with
+    # backoff rather than let it take the whole run down.
     tmp_path = OUT_PATH.with_suffix(".tmp")
     combined.to_parquet(tmp_path, index=False)
-    os.replace(tmp_path, OUT_PATH)
+    for attempt in range(5):
+        try:
+            os.replace(tmp_path, OUT_PATH)
+            break
+        except PermissionError:
+            if attempt == 4:
+                raise
+            time.sleep(0.5 * (attempt + 1))
     return len(combined)
 
 
@@ -390,10 +405,18 @@ def main():
                 manifest_buffer.append((ts, "ok", len(rows)))
 
             if i % CHECKPOINT_EVERY == 0 or not pending:
-                append_manifest(manifest_buffer)
-                manifest_buffer = []
+                # Output flushed before the manifest is written, not after:
+                # if flush_output raises (even past its own retries), the
+                # manifest must NOT yet say these timestamps are done --
+                # otherwise a resume would skip them, thinking their rows
+                # already made it to gdelt_history_extract.parquet when
+                # they never did. The reverse order risks silent data loss;
+                # this order risks only redundant re-fetching, which
+                # flush_output's own dedup absorbs harmlessly.
                 total_rows = flush_output(buffer) if buffer else None
                 buffer = []
+                append_manifest(manifest_buffer)
+                manifest_buffer = []
                 elapsed = time.monotonic() - t_start
                 rate = i / elapsed
                 eta_h = (len(ts_todo) - i) / rate / 3600 if rate > 0 else float("inf")
@@ -403,10 +426,12 @@ def main():
                      + (f" -- {total_rows:,} rows accumulated" if total_rows else ""),
                      file=sys.stderr)
     finally:
-        if manifest_buffer:
-            append_manifest(manifest_buffer)
+        # Same ordering as the main checkpoint, same reason: flush before
+        # marking done.
         if buffer:
             flush_output(buffer)
+        if manifest_buffer:
+            append_manifest(manifest_buffer)
         ex.shutdown(wait=False, cancel_futures=True)
 
     print(f"session done: {ok} fetched, {len(failed)} failed this session")
