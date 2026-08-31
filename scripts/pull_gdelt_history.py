@@ -1,38 +1,41 @@
-"""Resumable, checkpointed full-history GDELT pull -- the streaming-local
-alternative to pull_gdelt_bigquery.py.
+"""Stage 1 of the locked news-pipeline spec: resumable, checkpointed GKG
+history pull, quarter-sample resolution.
 
-At this connection's measured ceiling (~22 Mbps -- doubling worker count
-12->24 didn't move the aggregate at all, so it's a real cap, not a latency
-artifact), full resolution (2015-2024, ~2.1TB) is ~9-10 days of wall clock,
-not the 2 days a faster-connection assumption would give. That's long
-enough that per-file resumability isn't optional: a checkpoint manifest
-(data/gdelt_history_manifest.csv) records every timestamp already
-processed, so a restart after any interruption skips straight to where it
-left off rather than re-downloading from the start. Output is flushed
-periodically too, so a crash costs at most one checkpoint interval, not the
-whole run.
+Window: 2015-02-19 (GDELT v2 start) -> 2024-04-05 (EIA series end), ~3,330
+days. Quarter-sample (1 file/hour, not all 4): 22 Mbps measured on this
+connection, confirmed a real ceiling (24 workers moved nothing over 12), so
+full resolution is ~9 days against this one's ~2.3.
 
-Same precision-first predicate as pull_gdelt_bigquery.py and
+Five fields kept, everything else discarded at parse time -- V2GCAM's
+2,300+ dimensions, the enhanced per-mention-offset fields, and
+V2RelatedImages are never written:
+    V2.1DATE            date (batch stamp; 15-min granularity is immaterial
+                         at daily frequency)
+    DocumentIdentifier   URL, fetched in stage 2
+    SourceCommonName     attrition diagnostic (stage 5)
+    V1Themes             topic shares -- V1, not V2EnhancedThemes, which
+                         repeats each theme once per mention with offsets
+    V1.5Tone              all six dims, kept as the free lexicon cross-check
+                         for Sec. XIII, not just the headline tone value
+
+Same conjunctive oil predicate as pull_gdelt_bigquery.py and
 explore/03_gate2_diagnostics.py step 3 (oil/crude term AND inventory term,
-not "eia" alone) -- kept identical across all three routes so results are
-comparable regardless of which one actually runs.
+not "eia" alone), now matched against V1Themes instead of V2Themes -- same
+underlying taxonomy codes, so the predicate's behaviour carries over.
 
-Two sampling modes:
-  --sample full     all 96 files/day (~2.1TB, ~9-10 days at this connection)
-  --sample quarter  1 file/hour, 24/day (~1/4 the volume and time)
-
-The quarter mode is a real estimation tradeoff, not a free lunch: n_t
-(document counts feeding R_t = sigma^2/n_t in the news-variance
-construction) will be ~1/4 of true daily volume and needs scaling back up
-by the sampling factor (4x) before use, or R_t comes out 4x too large.
-sigma^2 itself stays unbiased, just noisier from fewer documents per day.
+A checkpoint manifest (data/gdelt_history_manifest.csv) records every
+timestamp already processed, so a restart after any interruption resumes
+rather than re-downloading from the start; output is flushed periodically
+too, so a crash costs at most one checkpoint interval.
 
 Usage:
-    python scripts/pull_gdelt_history.py --sample full --dry-run
-    python scripts/pull_gdelt_history.py --sample quarter --run
-    python scripts/pull_gdelt_history.py --sample full --run   # resumes
-                                                                 # automatically
-                                                                 # if rerun
+    python scripts/pull_gdelt_history.py --dry-run
+    python scripts/pull_gdelt_history.py --run       # resumes automatically
+                                                       # if rerun
+    python scripts/pull_gdelt_history.py --sample full --dry-run  # for
+                                                       # comparison only;
+                                                       # quarter is the
+                                                       # locked decision
 """
 
 import argparse
@@ -55,9 +58,10 @@ ROOT = Path(__file__).resolve().parents[1]
 OUT_PATH = ROOT / "data" / "gdelt_history_extract.parquet"
 MANIFEST_PATH = ROOT / "data" / "gdelt_history_manifest.csv"
 
-START = datetime(2015, 2, 18, 0, 0, tzinfo=timezone.utc)   # GKG 2.0 launch
-END = datetime(2025, 1, 1, 0, 0, tzinfo=timezone.utc)       # exclusive; matches
-                                                             # pull_gdelt_bigquery.py
+START = datetime(2015, 2, 19, 0, 0, tzinfo=timezone.utc)   # GDELT v2 start
+END = datetime(2024, 4, 6, 0, 0, tzinfo=timezone.utc)       # exclusive; covers
+                                                             # through 2024-04-05,
+                                                             # the EIA series end
 
 BASE_URL = "https://data.gdeltproject.org/gdeltv2/{ts}.gkg.csv.zip"
 MAX_WORKERS = 12    # more workers didn't raise throughput at this connection's
@@ -77,9 +81,14 @@ INV_TERM = re.compile(r"inventor|stockpile|petroleum status|weekly petroleum",
 COL_DATE = 1
 COL_SOURCE_NAME = 3
 COL_DOCID = 4
-COL_V2THEMES = 8
-COL_TONE = 15
+COL_V1THEMES = 7    # not V2ENHANCEDTHEMES (8) -- that repeats each theme
+                    # once per mention with character offsets
+COL_TONE = 15       # V1.5TONE: 6 comma-separated dims (see TONE_COLS below)
 MIN_COLS = 16
+
+# V1.5Tone field order per the GKG 2.1 codebook.
+TONE_COLS = ["tone_avg", "tone_pos", "tone_neg", "tone_polarity",
+            "tone_activity_density", "tone_selfref_density"]
 
 
 def full_timestamps():
@@ -137,12 +146,13 @@ def parse_gkg(ts, raw):
     for row in reader:
         if len(row) < MIN_COLS:
             continue
-        docid, themes = row[COL_DOCID], row[COL_V2THEMES]
+        docid, themes = row[COL_DOCID], row[COL_V1THEMES]
         blob = f"{docid} {themes}"
         if OIL_TERM.search(blob) and INV_TERM.search(blob):
-            tone_field = row[COL_TONE].split(",")[0] if row[COL_TONE] else ""
+            tone_vals = row[COL_TONE].split(",") if row[COL_TONE] else []
+            tone_vals = (tone_vals + [""] * 6)[:6]   # pad/truncate defensively
             rows.append((row[COL_DATE], docid, blob.lower(), row[COL_SOURCE_NAME],
-                        themes, tone_field))
+                        themes, *tone_vals))
     return rows
 
 
@@ -165,13 +175,14 @@ def append_manifest(entries: list[tuple[str, str, int]]):
 def flush_output(new_records: list[tuple]) -> int:
     """Merge new_records into the accumulated parquet; dedup by URL."""
     cols = ["V2.1DATE", "DocumentIdentifier", "text", "SourceCommonName",
-           "Themes", "Tone"]
+           "Themes", *TONE_COLS]
     new_df = pd.DataFrame(new_records, columns=cols)
     new_df["timestamp"] = pd.to_datetime(new_df["V2.1DATE"], format="%Y%m%d%H%M%S",
                                          utc=True)
-    new_df["Tone"] = pd.to_numeric(new_df["Tone"], errors="coerce")
+    for c in TONE_COLS:
+        new_df[c] = pd.to_numeric(new_df[c], errors="coerce")
     new_df = new_df[["timestamp", "text", "DocumentIdentifier",
-                     "SourceCommonName", "Themes", "Tone"]]
+                     "SourceCommonName", "Themes", *TONE_COLS]]
 
     if OUT_PATH.exists():
         combined = pd.concat([pd.read_parquet(OUT_PATH), new_df], ignore_index=True)
@@ -185,7 +196,7 @@ def flush_output(new_records: list[tuple]) -> int:
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("--sample", choices=["full", "quarter"], default="full")
+    ap.add_argument("--sample", choices=["full", "quarter"], default="quarter")
     ap.add_argument("--dry-run", action="store_true",
                     help="print the file count and estimated time, don't fetch")
     ap.add_argument("--run", action="store_true")
