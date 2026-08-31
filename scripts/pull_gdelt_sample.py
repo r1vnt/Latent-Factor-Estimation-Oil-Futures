@@ -1,43 +1,65 @@
-"""Pull a short GDELT v2 GKG sample and filter to oil-related documents.
+"""Pull one week of GDELT v2 GKG and filter to oil-related documents.
 
-Day-1 sanity check, not the full download. Scoped to a single release-day
-window rather than a full week: the timestamp check in
-`explore/01_timestamps.py` only uses documents whose *own* V2.1DATE falls on
-a Wednesday (the EIA WPSR release day), so a window that safely covers one
-Wednesday in US Eastern time is sufficient for that check. A full week adds
-six days of files that get discarded by the check's own day-of-week filter.
+Gate 2: this is the sample the timestamp check (explore/01_timestamps.py)
+runs against, deciding whether the measurement specification (SM) is viable
+at all. Bulk GKG files, not the DOC API -- the codebook states V2.1DATE is
+publication time, where the API's `seendate` is when GDELT observed it, and
+that distinction is the whole gate.
 
-GKG has no full article body — only structured fields. We build a
-searchable "text" proxy from the document URL, themes, organizations, and
-extracted names, and filter broadly to oil-related documents. The finer
-EIA-release keyword filter happens downstream in the timestamp script.
+GKG carries no article body -- only structured fields. The searchable
+"text" proxy used for both the broad oil filter here and the EIA-release
+filter downstream is built from the document URL and GDELT's theme
+taxonomy only, not organizations/names, which is where the noisier ad hoc
+version of this script picked up false positives. V2SourceCommonName and
+V1.5Tone are carried through unfiltered for the dedup/scoring work that
+follows a pass, not used for matching here.
 
 Usage: python scripts/pull_gdelt_sample.py
-Output: data/news_sample.parquet  (columns: timestamp, text)
+Output: data/news_sample.parquet
+  columns: timestamp, text, DocumentIdentifier, SourceCommonName, Themes, Tone
 """
 
 import csv
 import io
 import sys
+import time
 import zipfile
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pandas as pd
 import requests
 
-# Window: covers US-Eastern Wednesday 2024-01-10 with buffer on both sides.
-# EST = UTC-5 in January, so ET Wednesday spans [Jan10 05:00, Jan11 05:00) UTC.
-WINDOW_START = datetime(2024, 1, 10, 0, 0, tzinfo=timezone.utc)
-WINDOW_END = datetime(2024, 1, 11, 8, 0, tzinfo=timezone.utc)  # exclusive-ish
+# Python's csv default field-size limit (128KB) is smaller than some GKG
+# rows' longest field (typically V2.1Quotations or V2.1Amounts on a
+# document with heavy entity extraction); uncaught, that's a hard crash
+# partway through a file, not a per-row skip. 10MB is generous headroom
+# without risking the OverflowError csv.field_size_limit(sys.maxsize) hits
+# on some Windows/32-bit-C-long builds.
+csv.field_size_limit(10_000_000)
+
+# One full week, per Sec. XII-A's "one week, not ten years": the timestamp
+# check needs a real sample, not a synthetic stand-in, but a full download
+# is a days-long commitment that should wait on this gate passing.
+WEEK_START = datetime(2024, 1, 8, 0, 0, tzinfo=timezone.utc)
+WEEK_END = datetime(2024, 1, 14, 23, 45, tzinfo=timezone.utc)
 STEP = timedelta(minutes=15)
 
 BASE_URL = "https://data.gdeltproject.org/gdeltv2/{ts}.gkg.csv.zip"
 OUT_PATH = Path(__file__).resolve().parents[1] / "data" / "news_sample.parquet"
-MAX_WORKERS = 8
+MAX_WORKERS = 12
 RETRIES = 3
-TIMEOUT = (10, 45)  # (connect, read) seconds
+TIMEOUT = (10, 15)  # (connect, read-between-chunks) seconds
+HARD_DEADLINE = 60   # total seconds per attempt, enforced manually below --
+                     # requests' read timeout only fires on a gap between
+                     # chunks, so a connection trickling data steadily but
+                     # slowly never times out on its own and can hang a
+                     # worker indefinitely (observed: 20/672 files in 22min).
+STALL_LIMIT = 120   # seconds with zero completions before giving up on the
+                    # rest of the run and writing out what's already in hand
+                    # -- belt-and-braces on top of HARD_DEADLINE, since a
+                    # stall was observed to survive that too (see fetch()).
 
 OIL_KEYWORDS = [
     "oil", "crude", "petroleum", "opec", "wti", "brent", "barrel",
@@ -45,35 +67,48 @@ OIL_KEYWORDS = [
     "energy information administration", "eia", "inventor", "stockpile",
 ]
 
-# GKG 2.1 column indices (0-based) we use.
+# GKG 2.1 column indices (0-based).
 COL_DATE = 1
+COL_SOURCE_NAME = 3
 COL_DOCID = 4
-COL_V1THEMES = 7
 COL_V2THEMES = 8
-COL_V1ORGS = 13
-COL_V2ORGS = 14
-COL_ALLNAMES = 23
-MIN_COLS = 24
+COL_TONE = 15
+MIN_COLS = 16
 
 
 def timestamps():
-    t = WINDOW_START
-    while t <= WINDOW_END:
+    t = WEEK_START
+    while t <= WEEK_END:
         yield t.strftime("%Y%m%d%H%M%S")
         t += STEP
 
 
-def fetch(ts, session):
+def fetch(ts):
+    # A fresh session per call, not shared across worker threads: a shared
+    # session's connection pool was implicated in the stall this hit twice
+    # in a row (fresh curl calls outside the pool succeeded while every
+    # worker sharing one session sat stuck for 10+ minutes with zero
+    # completions and zero raised errors).
     url = BASE_URL.format(ts=ts)
-    for attempt in range(1, RETRIES + 1):
-        try:
-            r = session.get(url, timeout=TIMEOUT)
-            if r.status_code == 200 and r.content:
-                return ts, r.content, None
-            return ts, None, f"http {r.status_code} len={len(r.content)}"
-        except requests.RequestException as e:
-            if attempt == RETRIES:
-                return ts, None, str(e)
+    with requests.Session() as session:
+        for attempt in range(1, RETRIES + 1):
+            t0 = time.monotonic()
+            try:
+                with session.get(url, timeout=TIMEOUT, stream=True) as r:
+                    if r.status_code != 200:
+                        return ts, None, f"http {r.status_code}"
+                    chunks = []
+                    for chunk in r.iter_content(chunk_size=1 << 16):
+                        chunks.append(chunk)
+                        if time.monotonic() - t0 > HARD_DEADLINE:
+                            raise TimeoutError(f"exceeded {HARD_DEADLINE}s total")
+                    content = b"".join(chunks)
+                if content:
+                    return ts, content, None
+                return ts, None, "empty response"
+            except (requests.RequestException, TimeoutError) as e:
+                if attempt == RETRIES:
+                    return ts, None, str(e)
     return ts, None, "unreachable"
 
 
@@ -92,39 +127,63 @@ def parse_gkg(ts, raw):
     for row in reader:
         if len(row) < MIN_COLS:
             continue
-        blob = " ".join([
-            row[COL_DOCID], row[COL_V1THEMES], row[COL_V2THEMES],
-            row[COL_V1ORGS], row[COL_V2ORGS], row[COL_ALLNAMES],
-        ]).lower()
+        docid, themes = row[COL_DOCID], row[COL_V2THEMES]
+        blob = f"{docid} {themes}".lower()
         if any(kw in blob for kw in OIL_KEYWORDS):
-            rows.append((row[COL_DATE], row[COL_DOCID], blob[:500]))
+            tone_field = row[COL_TONE].split(",")[0] if row[COL_TONE] else ""
+            rows.append((row[COL_DATE], docid, blob, row[COL_SOURCE_NAME],
+                        themes, tone_field))
     return rows
 
 
 def main():
     ts_list = list(timestamps())
-    print(f"window: {WINDOW_START.isoformat()} .. {WINDOW_END.isoformat()}  "
+    print(f"week: {WEEK_START.isoformat()} .. {WEEK_END.isoformat()}  "
           f"({len(ts_list)} files)")
 
-    session = requests.Session()
     ok, failed = 0, []
     records = []
+    i = 0
+    t_start = time.monotonic()
+    stalled = False
 
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as ex:
-        futures = {ex.submit(fetch, ts, session): ts for ts in ts_list}
-        for i, fut in enumerate(as_completed(futures), 1):
-            ts, raw, err = fut.result()
-            if raw is None:
-                failed.append((ts, err))
-            else:
+    ex = ThreadPoolExecutor(max_workers=MAX_WORKERS)
+    pending = {ex.submit(fetch, ts) for ts in ts_list}
+    try:
+        while pending:
+            done, pending = wait(pending, timeout=STALL_LIMIT,
+                                 return_when=FIRST_COMPLETED)
+            if not done:
+                print(f"  no completions in {STALL_LIMIT}s -- {len(pending)} files "
+                      f"still outstanding; giving up on the rest and writing "
+                      f"what's already in hand", file=sys.stderr)
+                stalled = True
+                break
+            for fut in done:
+                i += 1
+                ts, raw, err = fut.result()
+                if raw is None:
+                    failed.append((ts, err))
+                    continue
                 ok += 1
-                records.extend(parse_gkg(ts, raw))
-            if i % 20 == 0 or i == len(ts_list):
-                print(f"  {i}/{len(ts_list)} files fetched, "
-                      f"{len(failed)} failed, {len(records)} oil-related rows so far",
-                      file=sys.stderr)
+                try:
+                    records.extend(parse_gkg(ts, raw))
+                except Exception as e:
+                    # A malformed file's parse error shouldn't cost the
+                    # other 671 -- record it as a failure and move on.
+                    failed.append((ts, f"parse error: {e}"))
+            elapsed = time.monotonic() - t_start
+            rate = i / elapsed
+            eta_min = (len(ts_list) - i) / rate / 60 if rate > 0 else float("inf")
+            print(f"  {i}/{len(ts_list)} files, {len(failed)} failed, "
+                  f"{len(records)} rows  [{elapsed / 60:.1f}min elapsed, "
+                  f"{rate:.2f} files/s, ~{eta_min:.0f}min remaining]",
+                  file=sys.stderr)
+    finally:
+        ex.shutdown(wait=False, cancel_futures=True)
 
-    print(f"downloaded {ok}/{len(ts_list)} files, {len(failed)} failed")
+    print(f"downloaded {ok}/{len(ts_list)} files, {len(failed)} failed"
+          f"{', STALLED -- incomplete run' if stalled else ''}")
     if failed:
         print(f"  failed timestamps: {[f[0] for f in failed[:10]]}"
               f"{' ...' if len(failed) > 10 else ''}")
@@ -133,9 +192,14 @@ def main():
         print("no oil-related documents found — aborting write")
         return
 
-    df = pd.DataFrame(records, columns=["V2.1DATE", "DocumentIdentifier", "text"])
+    df = pd.DataFrame(records, columns=[
+        "V2.1DATE", "DocumentIdentifier", "text", "SourceCommonName",
+        "Themes", "Tone",
+    ])
     df["timestamp"] = pd.to_datetime(df["V2.1DATE"], format="%Y%m%d%H%M%S", utc=True)
-    df = df[["timestamp", "text", "DocumentIdentifier"]].dropna(subset=["timestamp"])
+    df["Tone"] = pd.to_numeric(df["Tone"], errors="coerce")
+    df = df[["timestamp", "text", "DocumentIdentifier", "SourceCommonName",
+            "Themes", "Tone"]].dropna(subset=["timestamp"])
     df = df.drop_duplicates(subset=["DocumentIdentifier"])
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
