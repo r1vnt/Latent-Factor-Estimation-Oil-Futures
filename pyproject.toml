@@ -11,7 +11,7 @@ dependencies = ["numpy>=1.24", "scipy>=1.10", "pandas>=2.0", "matplotlib>=3.7"]
 
 [project.optional-dependencies]
 fast = ["numba>=0.58"]
-data = ["requests>=2.31", "pyarrow>=14"]
+data = ["requests>=2.31", "pyarrow>=14", "google-cloud-bigquery>=3.20", "db-dtypes>=1.2"]
 nlp  = ["transformers>=4.35", "torch>=2.0"]
 dev  = ["pytest>=7.4", "jupytext>=1.16"]
 
