@@ -117,11 +117,25 @@ class NewsData:
 
 
 def _driver_term(B: np.ndarray | None, u: np.ndarray, n: int, k: int):
-    """Exogenous transition contribution B u_{t-1}, lagged one session."""
+    """Exogenous transition contribution B u_{t-1}, lagged one session.
+
+    Unlike the measurement equation, the transition equation has no
+    per-element "skip this" mechanism -- Bu[t] is added to xp unconditionally
+    every step, so a NaN in u for a day with no news reading cannot be left
+    as NaN the way a missing measurement can. And it cannot be relied on to
+    cancel out through B: NaN * 0.0 is NaN, not 0.0, so even a B of all
+    zeros (the S0-equivalent case that must reproduce a driver-free run
+    exactly) would still poison the state from that point forward on real
+    data with coverage gaps -- found via exactly that failure mode dry-
+    running this against real Stage 4 data. A day with no news reading is
+    treated as no exogenous push that day, which is the standard convention
+    for a missing regressor and is what actually lets B = 0 nest S0.
+    """
     if B is None:
         return np.zeros((n, k))
     lagged = np.zeros_like(u)
     lagged[1:] = u[:-1]
+    lagged = np.nan_to_num(lagged, nan=0.0)
     Bu = np.zeros((n, k))
     Bu[:, :2] = lagged @ np.asarray(B, float).T
     return Bu
