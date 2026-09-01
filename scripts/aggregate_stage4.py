@@ -11,7 +11,19 @@ slug) dedup -- not recomputed here.
 
 Per day:
     I_t          all matching docs that day, deduped -- from stage 2's
-                 manifest. Feeds the process-noise intensity scaling.
+                 manifest, coverage-normalised (see below). Feeds the
+                 process-noise intensity scaling.
+    files_present / coverage  how many of the 24 scheduled quarter-sample
+                 hours actually fetched that day, out of 24. GDELT's
+                 archive has genuine gaps (mostly clustered right after
+                 the Feb 2015 launch); a day with 20/24 files understates
+                 I_t by construction, indistinguishably from a genuinely
+                 quiet news day, unless corrected. I_t above is already
+                 coverage-normalised (I_t_raw * 24 / files_present);
+                 files_present/coverage are kept as explicit columns too,
+                 not just folded into the correction, so a downstream user
+                 can see which days rest on thin coverage rather than
+                 trusting the normalisation blindly.
     n_t          count of outcome == "scored". Never the candidate count,
                  never rescaled -- a different quantity from I_t, and R_t
                  widening on a thin-n_t day is correct behaviour, not bias.
@@ -23,19 +35,47 @@ Per day:
                  match each category. The mapping isn't specified verbatim
                  anywhere upstream; it's a keyword-substring classifier
                  against real GDELT taxonomy codes, documented below, not
-                 asserted as authoritative. WB_507_ENERGY_AND_EXTRACTIVES
-                 is deliberately absent here, same as from the corpus
-                 predicate itself -- empirically identified as too broad
-                 (71.5% of one day's raw candidates, see
-                 pull_gdelt_history.py) to carry signal about anything,
-                 including which theme bucket a document belongs in.
+                 asserted as authoritative. WB_507_ENERGY_AND_EXTRACTIVES,
+                 ENV_OIL, and WB_539/WB_548 are deliberately absent here,
+                 same as from the corpus predicate itself -- all four
+                 empirically identified as too broad to carry signal about
+                 anything, including which theme bucket a document
+                 belongs in (see pull_gdelt_history.py for each finding).
     tone dims    the six V1.5Tone components, averaged over the same
                  scored subset as sent_mean, for an apples-to-apples free
                  lexicon cross-check (Sec. XIII)
-    intensity    standardised log(1 + I_t) -- I_t, not n_t: n_t saturates
-                 near 60 by design once a day has enough candidates, so it
-                 stops carrying information about true volume past that
-                 point; I_t doesn't.
+    intensity    log(1 + I_t), I_t already coverage-normalised, standardised
+                 WITHIN EACH CALENDAR YEAR rather than over the whole
+                 series -- I_t, not n_t: n_t saturates near 60 by design
+                 once a day has enough candidates, so it stops carrying
+                 information about true volume past that point; I_t
+                 doesn't. Within-year, not global, because
+                 explore/08_retention_rate_by_year.py measured real
+                 non-trending year-to-year variance in what fraction of
+                 true oil coverage the theme-code predicate retains (47%
+                 to 81%, corr(year, retention) = -0.044 -- no drift, but
+                 real per-year steps). A year at 47% retention shows I_t
+                 at roughly 58% of an equivalent year at 81% for reasons
+                 that are entirely GDELT tagging-convention noise, not
+                 news volume -- exactly the kind of year-level step that
+                 would masquerade as signal to gamma in eq. (24) under a
+                 single global standardisation. The identifying variation
+                 gamma needs is "is today heavy relative to normal *this
+                 year*"; that's within-year by construction, and removing
+                 the cross-year level differences costs nothing the model
+                 wants.
+
+A day with files_present == 0 has no observation at all, not a confirmed
+zero, and gets NaN across every field -- never zero, which would be the
+same error as flooring a negative price into a small positive one instead
+of marking it missing, just in the news channel instead of the price
+channel. The output is reindexed onto the full window (stage 1's
+START..END) so every day gets a row, present or not; a day with no
+scored documents (whether from zero coverage or zero candidates
+surviving the predicate) must be a NaN row in this table, not an absent
+one, since an absent row risks silently vanishing in a later join against
+the price panel rather than being carried through as an explicit missing
+observation for the filter's exact missing-data handling to use.
 
 Dedup happens before any of this: stage 1 already dedups by
 DocumentIdentifier at flush time, stage 2's I_t computation dedups on
@@ -57,11 +97,15 @@ import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from pull_gdelt_history import OUT_PATH as STAGE1_OUTPUT   # noqa: E402
-from pull_gdelt_history import TONE_COLS                    # noqa: E402
-from fetch_score_stage2 import STAGE2_MANIFEST, STAGE3_LOG   # noqa: E402
+from pull_gdelt_history import START as WINDOW_START         # noqa: E402
+from pull_gdelt_history import END as WINDOW_END              # noqa: E402
+from pull_gdelt_history import TONE_COLS                      # noqa: E402
+from pull_gdelt_history import coverage_by_day                # noqa: E402
+from fetch_score_stage2 import STAGE2_MANIFEST, STAGE3_LOG     # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 OUT_PATH = ROOT / "data" / "stage4_daily.parquet"
+HOURS_SCHEDULED = 24   # quarter-sample: 1 file/hour
 
 # A keyword-substring mapping from GDELT's real V1Themes taxonomy codes to
 # four coarse categories. Not specified upstream -- built from taxonomy
@@ -107,40 +151,113 @@ def main():
     joined = s3.merge(s1[["url_hash", "Themes", *TONE_COLS]], on="url_hash",
                       how="left")
     scored = joined[joined["outcome"] == "scored"].copy()
-    if scored.empty:
-        sys.exit("no successfully-scored documents in stage 3 log yet")
 
-    for cat, pattern in THEME_CATEGORIES.items():
-        scored[f"theme_{cat}"] = scored["Themes"].fillna("").str.contains(
-            pattern, regex=True)
+    if not scored.empty:
+        for cat, pattern in THEME_CATEGORIES.items():
+            scored[f"theme_{cat}"] = scored["Themes"].fillna("").str.contains(
+                pattern, regex=True)
 
-    agg = scored.groupby("date").agg(
-        sent_mean=("finbert_score", "mean"),
-        disp=("finbert_score", "std"),
-        n_t=("finbert_score", "size"),
-        **{f"theme_{cat}": (f"theme_{cat}", "mean") for cat in THEME_CATEGORIES},
-        **{c: (c, "mean") for c in TONE_COLS},
-    ).reset_index()
-    agg["disp"] = agg["disp"].fillna(0.0)   # a single-document day has no spread
+        agg = scored.groupby("date").agg(
+            sent_mean=("finbert_score", "mean"),
+            disp=("finbert_score", "std"),
+            n_t=("finbert_score", "size"),
+            **{f"theme_{cat}": (f"theme_{cat}", "mean") for cat in THEME_CATEGORIES},
+            **{c: (c, "mean") for c in TONE_COLS},
+        ).reset_index()
+        agg["disp"] = agg["disp"].fillna(0.0)   # a single-document day has no spread
+    else:
+        agg = pd.DataFrame(columns=["date", "sent_mean", "disp", "n_t",
+                                   *[f"theme_{c}" for c in THEME_CATEGORIES],
+                                   *TONE_COLS])
 
     it = pd.read_csv(STAGE2_MANIFEST, dtype={"day": str})[["day", "I_t"]]
-    agg = agg.merge(it, left_on="date", right_on="day", how="left").drop(columns="day")
+    agg = agg.merge(it, left_on="date", right_on="day", how="outer")
+    # left_on/right_on differ, so pandas keeps both "date" and "day" rather
+    # than deduping them -- every row that came only from `it` (I_t exists,
+    # but stage 3 has no scored rows for that day) has date == NaN and
+    # day == the real key, and the reverse for a scored-only row.
+    agg["date"] = agg["date"].fillna(agg["day"])
+    agg = agg.drop(columns="day")
 
-    agg["intensity"] = np.log1p(agg["I_t"])
-    agg["intensity"] = (agg["intensity"] - agg["intensity"].mean()) / agg["intensity"].std()
+    # Coverage: files actually fetched vs the 24 scheduled. Missing entirely
+    # from the manifest (files_present=0) is NOT the same as I_t=0 with
+    # attempted-but-empty coverage -- both end up coverage=0 here, and both
+    # correctly produce NaN below, but the reasoning differs: the first is
+    # "we never got the data", the second is "we got the data and it says
+    # zero," and this table intentionally cannot tell them apart because
+    # eq. (24) shouldn't either -- both are "no reliable volume reading."
+    cov = coverage_by_day()
+    agg["files_present"] = agg["date"].map(lambda d: cov.get(d, 0))
+    agg["coverage"] = agg["files_present"] / HOURS_SCHEDULED
 
+    # I_t normalised by coverage where any data exists; NaN (not 0) where
+    # none does. Every other field: NaN wherever there's no I_t, since a
+    # missing news observation must never masquerade as a confirmed zero --
+    # the same rule Panel.build applies to non-positive prices, just in the
+    # news channel.
+    has_data = agg["files_present"] > 0
+    agg["I_t"] = np.where(has_data, agg["I_t"] / agg["coverage"].replace(0, np.nan),
+                          np.nan)
+
+    value_cols = ["sent_mean", "disp", "n_t",
+                 *[f"theme_{c}" for c in THEME_CATEGORIES], *TONE_COLS]
+    for c in value_cols:
+        if c in agg.columns:
+            agg[c] = np.where(has_data, agg[c], np.nan)
+
+    agg["intensity"] = np.where(has_data, np.log1p(agg["I_t"]), np.nan)
+    # Standardised WITHIN EACH CALENDAR YEAR, not globally -- see the module
+    # docstring. `agg["date"]` is still a YYYYMMDD string here (converted to
+    # datetime below), so year is just its first 4 characters.
+    year = agg["date"].str[:4]
+
+    def _standardize_within_year(s: pd.Series) -> pd.Series:
+        finite = s.dropna()
+        if len(finite) > 1:
+            return (s - finite.mean()) / finite.std()
+        # A year with 0 or 1 valid reading has no within-year "normal" to
+        # compare against -- leaving a raw, un-standardised log1p value
+        # here would silently mix a different scale into an otherwise
+        # standardised column, so it's NaN instead, same as any other
+        # under-determined day in this table.
+        return pd.Series(np.nan, index=s.index)
+
+    agg["intensity"] = agg.groupby(year)["intensity"].transform(_standardize_within_year)
+
+    # Reindex onto the full window so every day is a row, present or not --
+    # an absent date risks silently vanishing in a later join against the
+    # price panel; a NaN row survives it and reaches the filter's exact
+    # missing-data handling instead.
     agg["date"] = pd.to_datetime(agg["date"], format="%Y%m%d")
-    agg = agg.sort_values("date").reset_index(drop=True)
+    # WINDOW_END is exclusive in pull_gdelt_history.py (the last fetched day
+    # is WINDOW_END - 1 day) -- date_range is inclusive of both ends, so the
+    # upper bound here is shifted back one day to match, rather than adding
+    # a day that stage 1 will never have data for.
+    full_index = pd.date_range(WINDOW_START.date(),
+                               (WINDOW_END - pd.Timedelta(days=1)).date(), freq="D")
+    agg = agg.set_index("date").reindex(full_index).rename_axis("date").reset_index()
+    agg["files_present"] = agg["files_present"].fillna(0).astype(int)
+    agg["coverage"] = agg["files_present"] / HOURS_SCHEDULED
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     agg.to_parquet(OUT_PATH, index=False)
-    print(f"wrote {len(agg):,} days -> {OUT_PATH}")
+
+    n_total = len(agg)
+    n_missing = agg["I_t"].isna().sum()
+    n_partial = ((agg["files_present"] > 0) & (agg["files_present"] < HOURS_SCHEDULED)).sum()
+    print(f"wrote {n_total:,} days -> {OUT_PATH}")
     print(f"  span: {agg.date.min().date()} .. {agg.date.max().date()}")
-    print(f"  I_t: mean={agg.I_t.mean():.1f} median={agg.I_t.median():.0f}")
-    print(f"  n_t: mean={agg.n_t.mean():.1f} median={agg.n_t.median():.0f} "
-         f"min={agg.n_t.min()} max={agg.n_t.max()}")
+    print(f"  {n_missing:,} days with no observation (NaN, not zero)")
+    print(f"  {n_partial:,} days with partial coverage (I_t normalised)")
+    if agg["I_t"].notna().any():
+        print(f"  I_t: mean={agg.I_t.mean():.1f} median={agg.I_t.median():.0f}")
+    if agg["n_t"].notna().any():
+        print(f"  n_t: mean={agg.n_t.mean():.1f} median={agg.n_t.median():.0f} "
+             f"min={agg.n_t.min():.0f} max={agg.n_t.max():.0f}")
     for cat in THEME_CATEGORIES:
-        print(f"  theme_{cat}: mean share {agg[f'theme_{cat}'].mean():.2%}")
+        col = f"theme_{cat}"
+        if agg[col].notna().any():
+            print(f"  {col}: mean share {agg[col].mean():.2%}")
 
 
 if __name__ == "__main__":
