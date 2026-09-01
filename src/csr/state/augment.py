@@ -96,8 +96,29 @@ def append_news_block(aug: dict, news: np.ndarray, G: np.ndarray,
     news   : (n, p)  observed news features; NaN where a day has no coverage
     G      : (p, 2)  loadings of each feature on (w^chi, w^xi)
     a_n    : (p,)    news intercepts
-    R_diag : (n, p)  news measurement variances -- time-varying, carrying the
-                     sampling-variance construction of eq. (23)
+    R_diag : (n, p)  news measurement variances, ON THE SAME CALENDAR-DAY
+                     INDEXING AS ``news`` -- i.e. R_diag[t] must be the
+                     sampling-variance construction of eq. (23) for the SAME
+                     day whose feature value is news[t], not pre-shifted by
+                     the caller. This function applies the identical lag
+                     shift to both, so the R value that ends up in row t of
+                     Hdiag always describes the actual observation stored in
+                     row t of y_news. Passing an already-shifted R_diag (or
+                     a caller assuming this function only shifts ``news``)
+                     silently pairs a valid shifted observation with a
+                     wrong-day variance -- if that wrong-day variance is NaN
+                     (a real possibility: the observation's own day had
+                     coverage but the unrelated day supplying an unshifted
+                     R_diag[t] didn't), filter_uv's per-observation missing
+                     check (``if np.isnan(yi): continue``) does not catch
+                     it, since yi itself is valid -- F silently becomes NaN,
+                     which is not caught by `F <= 0.0` either (NaN
+                     comparisons are always false), and NaN then poisons the
+                     log-likelihood *and every filtered state from that
+                     point forward*, for the whole remaining sample. This
+                     was found and fixed via exactly that failure mode on
+                     real (gappy) news data -- synthetic test fixtures with
+                     no NaN dispersion/counts cannot exercise it.
     lag    : int     sessions by which news trails the innovation it measures.
                      Must be >= 1 for any specification used for inference;
                      the estimation grid may include 0 or negative values
@@ -114,19 +135,29 @@ def append_news_block(aug: dict, news: np.ndarray, G: np.ndarray,
     news = np.atleast_2d(np.asarray(news, float))
     p = news.shape[1]
     G = np.asarray(G, float).reshape(p, 2)
+    R_diag = np.atleast_2d(np.asarray(R_diag, float))
+    if R_diag.shape[0] == 1 and n != 1:
+        R_diag = np.repeat(R_diag, n, axis=0)   # scalar-per-feature broadcast
 
-    # Shift news so that row t carries the observation attributable to the
-    # innovation of period t. lag >= 1 means today's state is measured by
-    # news published on a later session, which is not usable in real time;
-    # the shift below places news at the period whose shock it describes.
-    y_news = np.full((n, p), np.nan)
-    if lag >= 0:
-        if lag < n:
-            y_news[: n - lag] = news[lag:]
-    else:
-        s = -lag
-        if s < n:
-            y_news[s:] = news[: n - s]
+    def _shift(a: np.ndarray) -> np.ndarray:
+        """Row t -> the value attributable to the innovation of period t.
+        lag >= 1 means today's state is measured by something published on
+        a later session, which is not usable in real time; the shift below
+        places each array at the period whose shock it describes. Applied
+        identically to `news` and `R_diag` so a shifted observation and its
+        own variance can never end up describing different calendar days."""
+        out = np.full_like(a, np.nan)
+        if lag >= 0:
+            if lag < n:
+                out[: n - lag] = a[lag:]
+        else:
+            s = -lag
+            if s < n:
+                out[s:] = a[: n - s]
+        return out
+
+    y_news = _shift(news)
+    R_shifted = _shift(R_diag)
 
     Z_news = np.zeros((n, p, 4))
     Z_news[:, :, 2:] = G[None, :, :]
@@ -134,7 +165,7 @@ def append_news_block(aug: dict, news: np.ndarray, G: np.ndarray,
     Z = np.concatenate([aug["Z"], Z_news], axis=1)
     d = np.concatenate([aug["d"], np.repeat(np.asarray(a_n, float)[None, :], n, 0)],
                        axis=1)
-    Hdiag = np.concatenate([aug["Hdiag"], np.asarray(R_diag, float)], axis=1)
+    Hdiag = np.concatenate([aug["Hdiag"], R_shifted], axis=1)
 
     out = dict(aug)
     out.update({"Z": Z, "d": d, "Hdiag": Hdiag, "m": m + p,

@@ -165,6 +165,59 @@ def test_news_variance_rejects_standardised_counts():
         news_variance(np.ones(10), np.linspace(-2, 2, 10), p=2)
 
 
+def test_news_variance_shifts_with_the_observation_it_describes(panel):
+    """R_diag must be lag-shifted the same way the news observation is, so
+    the variance attached to row t always describes the same calendar day
+    as y_news[t] -- not the day that happens to sit at index t before the
+    shift. A day with a real gap (feature, dispersion, and counts all NaN
+    together, as aggregate_stage4.py always produces them) sitting right
+    next to covered days must not poison the log-likelihood: filter_uv only
+    skips a row when the *observation* is NaN, so a valid shifted
+    observation paired with a wrong-day NaN variance falls straight through
+    into log(NaN), silently corrupting the likelihood and every filtered
+    state after it. This is real, gappy Stage 4 data's shape, not an edge
+    case -- caught via exactly this scenario during the Stage 4 -> model
+    integration dry run, on data with no NaN in the synthetic `news`
+    fixture above to have ever exercised it."""
+    log_f, tau, _ = panel
+    n = len(log_f)
+    gap = 2   # index with no news coverage at all
+    dispersion = np.full(n, 0.3)
+    counts = np.full(n, 20.0)
+    feats = np.linspace(0.1, 0.6, n).reshape(-1, 1)
+    dispersion[gap] = np.nan
+    counts[gap] = np.nan
+    feats[gap] = np.nan
+    gappy_news = NewsData(feats, counts, dispersion, intensity=None)
+
+    ll, xf, _, _, nobs = run_spec(REGISTRY["SM"], SS_OIL, log_f, tau, DT,
+                                  gappy_news, G=np.array([[0.5, 0.3]]))
+    assert np.isfinite(ll)
+    assert np.all(np.isfinite(xf))
+    assert nobs > 0
+
+
+def test_news_variance_alignment_guard_catches_mismatched_coverage(panel):
+    """If a caller ever hands run_spec a NewsData whose .features NaN
+    pattern disagrees with .dispersion/.counts' NaN pattern -- the exact
+    kind of mismatch that let a wrong-day variance through before the
+    shift fix above -- it must fail loudly, not produce a silent NaN
+    likelihood through a different door."""
+    log_f, tau, _ = panel
+    n = len(log_f)
+    dispersion = np.full(n, 0.3)
+    counts = np.full(n, 20.0)
+    feats = np.linspace(0.1, 0.6, n).reshape(-1, 1)
+    dispersion[2] = np.nan
+    counts[2] = np.nan
+    # feats deliberately NOT made NaN at index 2 -- the mismatch itself.
+    mismatched_news = NewsData(feats, counts, dispersion, intensity=None)
+
+    with pytest.raises(ValueError, match="same per-day coverage"):
+        run_spec(REGISTRY["SM"], SS_OIL, log_f, tau, DT, mismatched_news,
+                G=np.array([[0.5, 0.3]]))
+
+
 def test_roll_inflation_raises_measurement_variance(panel, news):
     """eta > 0 must widen H inside roll windows and nowhere else."""
     from csr.pricing.twofactor import base_system, scale_variances

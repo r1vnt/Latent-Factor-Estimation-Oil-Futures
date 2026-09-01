@@ -165,6 +165,26 @@ def run_spec(spec: Spec, p_params: TwoFactorParams, log_f, tau, dt,
             raise ValueError(f"{spec.name} requires news data and G")
         feats = np.atleast_2d(news.features)
         p_eff = feats.shape[1]
+        # A day's feature reading and its own dispersion/counts must be
+        # NaN together, not independently -- append_news_block() shifts
+        # both by the same lag, so if their NaN patterns ever disagreed, a
+        # shifted-in valid observation could still land on a shifted-in NaN
+        # variance (or vice versa) despite the shift itself being correct,
+        # silently poisoning the log-likelihood and every filtered state
+        # after it exactly the way an unshifted R used to. Caught here,
+        # once, rather than downstream as an unexplained NaN loglik.
+        feat_missing = np.isnan(feats).any(axis=1)
+        other_missing = np.isnan(np.asarray(news.dispersion, float)) | \
+                        np.isnan(np.asarray(news.counts, float))
+        if not np.array_equal(feat_missing, other_missing):
+            raise ValueError(
+                "NewsData.features, .dispersion, and .counts must share the "
+                "same per-day coverage: a day with a feature reading must "
+                "also have its own dispersion/counts, and a day without one "
+                "must lack all three -- otherwise the measurement variance "
+                "attached to a lag-shifted observation can silently "
+                "describe the wrong day."
+            )
         R = news_variance(news.dispersion, news.counts, p_eff)
         if a_n is None:
             a_n = np.zeros(p_eff)
