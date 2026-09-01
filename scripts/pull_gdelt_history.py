@@ -77,7 +77,31 @@ import requests
 csv.field_size_limit(10_000_000)
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT_PATH = ROOT / "data" / "gdelt_history_extract.parquet"
+# A directory of small per-checkpoint part files, not one growing file.
+# flush_output() used to read the entire accumulated parquet back into
+# memory, concat the new batch, drop_duplicates, and rewrite the whole
+# thing -- on every checkpoint (every CHECKPOINT_EVERY files). At ~1.29M
+# rows/714MB that read-modify-write cycle needed enough contiguous memory
+# that a checkpoint's dedup step (`combined.take(...)` inside
+# drop_duplicates, internally) raised `pyarrow.lib.ArrowMemoryError: malloc
+# of size 1066829760 failed` with the system down to 0.6GB free -- and
+# because that exception had no handler between it and main()'s top level,
+# it unwound straight through the `finally` block's own retry of the same
+# oversized flush and past the `ex.shutdown()` call, leaving the
+# ThreadPoolExecutor's already-queued fetch workers running unsupervised:
+# every subsequent fetch they completed kept landing in the `pending` set
+# main() still held (nothing left to drain it), so the process kept
+# growing in memory *after* it had already crashed, never exiting on its
+# own. A directory of small parts bounds each write to one checkpoint
+# batch's worth of rows, forever, instead of scaling with total corpus
+# size -- dedup on DocumentIdentifier moves entirely to read time, which
+# both downstream readers already do or tolerate (aggregate_stage4.py
+# calls drop_duplicates after reading; fetch_score_stage2.py's
+# candidates_for_day() already narrows to .unique() URLs regardless of
+# upstream duplication). pd.read_parquet() treats a directory of parquet
+# files as one dataset transparently, so every existing call site that
+# reads OUT_PATH needed no change.
+OUT_PATH = ROOT / "data" / "gdelt_history_extract"
 MANIFEST_PATH = ROOT / "data" / "gdelt_history_manifest.csv"
 
 START = datetime(2015, 2, 19, 0, 0, tzinfo=timezone.utc)   # GDELT v2 start
@@ -321,6 +345,25 @@ def load_done() -> set[str]:
                if row["status"] in ("ok", "not_found")}
 
 
+def coverage_by_day() -> dict[str, int]:
+    """Files with status 'ok' per day (YYYYMMDD), out of the 24 scheduled
+    quarter-sample hours. Distinct from "complete" (attempted, regardless
+    of outcome) -- this is genuinely fetched. A day with fewer than 24
+    understates I_t if not corrected for, indistinguishably from a
+    genuinely quiet news day; a day with 0 has no observation at all and
+    must not silently become a zero downstream (same error as flooring a
+    negative price instead of marking it missing, in different clothes)."""
+    counts: dict[str, int] = {}
+    if not MANIFEST_PATH.exists():
+        return counts
+    with open(MANIFEST_PATH, newline="") as f:
+        for row in csv.DictReader(f):
+            if row["status"] == "ok":
+                day = row["ts"][:8]
+                counts[day] = counts.get(day, 0) + 1
+    return counts
+
+
 def append_manifest(entries: list[tuple[str, str, int]]):
     is_new = not MANIFEST_PATH.exists()
     with open(MANIFEST_PATH, "a", newline="") as f:
@@ -330,8 +373,18 @@ def append_manifest(entries: list[tuple[str, str, int]]):
         w.writerows(entries)
 
 
+_flush_counter = 0   # process-local; part filenames only need to be unique
+                    # within one run, not across restarts (see below)
+
+
 def flush_output(new_records: list[tuple]) -> int:
-    """Merge new_records into the accumulated parquet; dedup by URL."""
+    """Write new_records as one new part file under OUT_PATH/ -- never reads
+    or rewrites what's already there. Returns len(new_df) (this batch only,
+    after dropping any duplicate DocumentIdentifier within the batch itself
+    -- not a running total across the whole corpus, since getting an exact
+    deduped total would mean reading everything back, the cost this
+    function exists to avoid)."""
+    global _flush_counter
     cols = ["V2.1DATE", "DocumentIdentifier", "text", "SourceCommonName",
            "Themes", *TONE_COLS]
     new_df = pd.DataFrame(new_records, columns=cols)
@@ -341,38 +394,35 @@ def flush_output(new_records: list[tuple]) -> int:
         new_df[c] = pd.to_numeric(new_df[c], errors="coerce")
     new_df = new_df[["timestamp", "text", "DocumentIdentifier",
                      "SourceCommonName", "Themes", *TONE_COLS]]
+    new_df = new_df.drop_duplicates(subset=["DocumentIdentifier"])
 
-    if OUT_PATH.exists():
-        combined = pd.concat([pd.read_parquet(OUT_PATH), new_df], ignore_index=True)
-    else:
-        combined = new_df
-    combined = combined.drop_duplicates(subset=["DocumentIdentifier"])
-    OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
-    # Write-then-rename, not a direct write: stage 2 runs concurrently and
-    # polls this same file. to_parquet() writing in place gave a reader a
-    # torn file mid-write ("Parquet magic bytes not found in footer"),
-    # crashing stage 2 after 171 days of real progress. os.replace() is
-    # atomic on both Windows and POSIX, so a concurrent reader only ever
-    # sees the complete old file or the complete new one, never a partial
-    # -- but on Windows specifically, the replace itself can fail with
-    # PermissionError ([WinError 5] Access is denied) if stage 2 happens to
-    # have the old file open for reading at that exact instant, a real
-    # POSIX/Windows behavioural difference (POSIX allows renaming over an
-    # open file; Windows generally doesn't). That's what crashed this
-    # process 1375 files into the relaunch. It's transient -- stage 2 only
-    # holds the file open for the duration of one read -- so retry with
-    # backoff rather than let it take the whole run down.
-    tmp_path = OUT_PATH.with_suffix(".tmp")
-    combined.to_parquet(tmp_path, index=False)
+    OUT_PATH.mkdir(parents=True, exist_ok=True)
+    _flush_counter += 1
+    # PID in the name: two restarts launched close enough together to share
+    # a wall-clock second (this session's own Stage 1 relaunch history
+    # includes exactly that -- two processes, one second apart, see the
+    # OUT_PATH comment above) must still not collide on a part filename.
+    part_name = f"part-{int(time.time())}-{os.getpid()}-{_flush_counter:05d}.parquet"
+    part_path = OUT_PATH / part_name
+    tmp_path = part_path.with_suffix(".tmp")
+    # Write-then-rename, not a direct write, same reasoning as before: a
+    # concurrent reader (stage 2, mid-scan of the dataset directory) must
+    # never see a torn part file, only the complete file or none at all.
+    # Every part file is new and nothing else ever writes to it, so unlike
+    # the old single-shared-file design this can't collide with a stage-2
+    # read of the *same* path -- the PermissionError retry stays here only
+    # as cheap insurance against transient AV/indexer file locks, not
+    # because it's expected.
+    new_df.to_parquet(tmp_path, index=False)
     for attempt in range(5):
         try:
-            os.replace(tmp_path, OUT_PATH)
+            os.replace(tmp_path, part_path)
             break
         except PermissionError:
             if attempt == 4:
                 raise
             time.sleep(0.5 * (attempt + 1))
-    return len(combined)
+    return len(new_df)
 
 
 def main():
@@ -413,6 +463,8 @@ def main():
     buffer = []
     manifest_buffer = []
     i = 0
+    rows_written = 0   # this session's new rows, pre-cross-batch-dedup --
+                       # not the corpus's true size; see flush_output()
     t_start = time.monotonic()
 
     ex = ThreadPoolExecutor(max_workers=MAX_WORKERS)
@@ -449,11 +501,13 @@ def main():
                 # if flush_output raises (even past its own retries), the
                 # manifest must NOT yet say these timestamps are done --
                 # otherwise a resume would skip them, thinking their rows
-                # already made it to gdelt_history_extract.parquet when
-                # they never did. The reverse order risks silent data loss;
-                # this order risks only redundant re-fetching, which
-                # flush_output's own dedup absorbs harmlessly.
-                total_rows = flush_output(buffer) if buffer else None
+                # already made it to disk when they never did. The reverse
+                # order risks silent data loss; this order risks only
+                # redundant re-fetching, which a duplicate DocumentIdentifier
+                # across two part files costs nothing beyond what read-time
+                # dedup in every downstream consumer already absorbs.
+                batch_rows = flush_output(buffer) if buffer else 0
+                rows_written += batch_rows
                 buffer = []
                 append_manifest(manifest_buffer)
                 manifest_buffer = []
@@ -463,16 +517,25 @@ def main():
                 print(f"  {i}/{len(ts_todo)} this session, {len(failed)} failed, "
                      f"[{elapsed/3600:.2f}h elapsed, {rate*3600:.0f} files/h, "
                      f"~{eta_h:.1f}h remaining]"
-                     + (f" -- {total_rows:,} rows accumulated" if total_rows else ""),
+                     + (f" -- {rows_written:,} new rows written this session"
+                        if rows_written else ""),
                      file=sys.stderr)
     finally:
-        # Same ordering as the main checkpoint, same reason: flush before
-        # marking done.
+        # Shut the executor down and cancel not-yet-started futures FIRST,
+        # before attempting any final flush -- not after. This exact order
+        # is what let one flush_output() failure (an OOM inside the old
+        # read-modify-write design; see the OUT_PATH comment) turn into a
+        # runaway process: the exception unwound past ex.shutdown() with
+        # worker threads still pulling queued fetches, and with nothing
+        # left to consume their results, the process kept growing in
+        # memory *after* it had already crashed, instead of exiting.
+        # Shutting down first bounds that regardless of what the final
+        # flush does or whether it succeeds.
+        ex.shutdown(wait=False, cancel_futures=True)
         if buffer:
             flush_output(buffer)
         if manifest_buffer:
             append_manifest(manifest_buffer)
-        ex.shutdown(wait=False, cancel_futures=True)
 
     print(f"session done: {ok} fetched, {len(failed)} failed this session")
     print(f"checkpoint saved to {MANIFEST_PATH}; rerun to resume remaining files")
