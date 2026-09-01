@@ -87,6 +87,29 @@ def test_SD_with_zero_B_equals_S0(panel, news):
     assert abs(llD - ll0) < TOL
 
 
+def test_SD_with_zero_B_equals_S0_even_with_news_gaps(panel):
+    """B = 0 must reproduce S0 exactly regardless of gaps in the driver
+    input -- the `news` fixture above never has NaN features, so it cannot
+    exercise this. NaN * 0.0 is NaN, not 0.0: _driver_term() used to feed a
+    NaN straight into Bu whenever a gap day preceded a covered one, which
+    corrupted the transition state (and every state after it) even with
+    B all zeros. Found via the Stage 4 -> model integration dry run on
+    real, genuinely gappy news data."""
+    log_f, tau, _ = panel
+    n = len(log_f)
+    feats = np.zeros((n, 1))
+    feats[3] = np.nan   # a single gap day; B = 0 must still fully cancel it
+    gappy_news = NewsData(feats, counts=np.full(n, 20.0),
+                          dispersion=np.full(n, 0.3), intensity=None)
+
+    ll0, xf0, *_ = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+    llD, xfD, *_ = run_spec(REGISTRY["SD"], SS_OIL, log_f, tau, DT, gappy_news,
+                            B=np.zeros((2, 1)))
+    assert np.isfinite(llD)
+    assert abs(llD - ll0) < TOL
+    assert np.max(np.abs(xfD - xf0)) < 1e-10
+
+
 def test_SM_with_zero_G_equals_S0_on_price_rows(panel, news):
     """With G = 0 the news rows are uninformative about the state.
 
