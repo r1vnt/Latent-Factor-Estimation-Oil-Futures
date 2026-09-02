@@ -45,25 +45,36 @@ Per day:
                  scored subset as sent_mean, for an apples-to-apples free
                  lexicon cross-check (Sec. XIII)
     intensity    log(1 + I_t), I_t already coverage-normalised, standardised
-                 WITHIN EACH CALENDAR YEAR rather than over the whole
-                 series -- I_t, not n_t: n_t saturates near 60 by design
-                 once a day has enough candidates, so it stops carrying
-                 information about true volume past that point; I_t
-                 doesn't. Within-year, not global, because
-                 explore/08_retention_rate_by_year.py measured real
-                 non-trending year-to-year variance in what fraction of
-                 true oil coverage the theme-code predicate retains (47%
-                 to 81%, corr(year, retention) = -0.044 -- no drift, but
-                 real per-year steps). A year at 47% retention shows I_t
-                 at roughly 58% of an equivalent year at 81% for reasons
-                 that are entirely GDELT tagging-convention noise, not
-                 news volume -- exactly the kind of year-level step that
-                 would masquerade as signal to gamma in eq. (24) under a
-                 single global standardisation. The identifying variation
-                 gamma needs is "is today heavy relative to normal *this
-                 year*"; that's within-year by construction, and removing
-                 the cross-year level differences costs nothing the model
-                 wants.
+                 against a TRAILING 252-ROW ROLLING mean/std (min_periods
+                 below), not globally and not within calendar year -- I_t,
+                 not n_t: n_t saturates near 60 by design once a day has
+                 enough candidates, so it stops carrying information about
+                 true volume past that point; I_t doesn't.
+
+                 A within-year version of this was tried first, motivated
+                 by explore/08_retention_rate_by_year.py's finding of real
+                 non-trending year-to-year variance in the theme-code
+                 predicate's retention rate (47% to 81%, corr(year,
+                 retention) = -0.044 -- no drift, but real per-year steps,
+                 which a single global standardisation would have let leak
+                 into gamma in eq. (24) as spurious year-level jumps). But
+                 calendar-year grouping has two problems of its own, both
+                 fatal for this specific column: (1) both ends of the
+                 window are partial years -- 2015 starts 19 February
+                 (~223 trading days) and 2024 ends 5 April (~66 trading
+                 days) -- so 2024's mean/std would be estimated off a
+                 quarter of a normal year, and if Q1 news volume differs
+                 systematically from the annual average (it does, most
+                 years), 2024 sits on a different footing from every other
+                 year purely from sample-size noise, not the effect the
+                 within-year switch was meant to remove; (2) it is
+                 look-ahead -- day 40 of a year gets standardised against
+                 day 300's value too, which is fine for a single fixed
+                 historical table but is exactly what a Study C expanding-
+                 window backtest cannot tolerate once this pipeline feeds
+                 one. A trailing rolling window fixes both: no year
+                 boundary, so no partial-year distortion, and by
+                 construction only ever uses rows up to and including t.
 
 A day with files_present == 0 has no observation at all, not a confirmed
 zero, and gets NaN across every field -- never zero, which would be the
@@ -106,6 +117,18 @@ from fetch_score_stage2 import STAGE2_MANIFEST, STAGE3_LOG     # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 OUT_PATH = ROOT / "data" / "stage4_daily.parquet"
 HOURS_SCHEDULED = 24   # quarter-sample: 1 file/hour
+INTENSITY_ROLLING_WINDOW = 252   # trailing rows for intensity's rolling
+                                 # mean/std -- see the module docstring
+INTENSITY_MIN_PERIODS = 30   # below this many valid trailing readings
+                             # there's not enough history for a meaningful
+                             # "normal" to compare against; NaN rather than
+                             # a noisy estimate off a handful of days. This
+                             # is the price of a trailing window: the first
+                             # ~30-252 days of the whole series (not of
+                             # every year, unlike the calendar-year version)
+                             # get a thinner-than-ideal baseline, a one-time
+                             # startup transient rather than a recurring
+                             # per-year distortion.
 
 # A keyword-substring mapping from GDELT's real V1Themes taxonomy codes to
 # four coarse categories. Not specified upstream -- built from taxonomy
@@ -205,24 +228,10 @@ def main():
         if c in agg.columns:
             agg[c] = np.where(has_data, agg[c], np.nan)
 
+    # log1p(I_t) only for now -- the trailing rolling standardisation below
+    # needs correctly sorted, gap-complete rows, which don't exist until
+    # after the reindex further down.
     agg["intensity"] = np.where(has_data, np.log1p(agg["I_t"]), np.nan)
-    # Standardised WITHIN EACH CALENDAR YEAR, not globally -- see the module
-    # docstring. `agg["date"]` is still a YYYYMMDD string here (converted to
-    # datetime below), so year is just its first 4 characters.
-    year = agg["date"].str[:4]
-
-    def _standardize_within_year(s: pd.Series) -> pd.Series:
-        finite = s.dropna()
-        if len(finite) > 1:
-            return (s - finite.mean()) / finite.std()
-        # A year with 0 or 1 valid reading has no within-year "normal" to
-        # compare against -- leaving a raw, un-standardised log1p value
-        # here would silently mix a different scale into an otherwise
-        # standardised column, so it's NaN instead, same as any other
-        # under-determined day in this table.
-        return pd.Series(np.nan, index=s.index)
-
-    agg["intensity"] = agg.groupby(year)["intensity"].transform(_standardize_within_year)
 
     # Reindex onto the full window so every day is a row, present or not --
     # an absent date risks silently vanishing in a later join against the
@@ -238,6 +247,22 @@ def main():
     agg = agg.set_index("date").reindex(full_index).rename_axis("date").reset_index()
     agg["files_present"] = agg["files_present"].fillna(0).astype(int)
     agg["coverage"] = agg["files_present"] / HOURS_SCHEDULED
+
+    # Trailing rolling standardisation, now that rows are sorted by date
+    # with every day present (a rolling window over unsorted or gappy rows
+    # would silently use the wrong neighbours) -- see the module docstring
+    # for why this replaced a within-calendar-year version. Right-aligned
+    # (pandas' default): the window at row t is [t-251, t], never t+1
+    # onward, so this never uses information from a day after the one
+    # it's standardising -- the property a within-year version couldn't
+    # have, since day 40 of a year is standardised using day 300's value
+    # too.
+    log_int = agg["intensity"]
+    roll_mean = log_int.rolling(INTENSITY_ROLLING_WINDOW,
+                                min_periods=INTENSITY_MIN_PERIODS).mean()
+    roll_std = log_int.rolling(INTENSITY_ROLLING_WINDOW,
+                               min_periods=INTENSITY_MIN_PERIODS).std()
+    agg["intensity"] = (log_int - roll_mean) / roll_std.replace(0, np.nan)
 
     OUT_PATH.parent.mkdir(parents=True, exist_ok=True)
     agg.to_parquet(OUT_PATH, index=False)

@@ -157,48 +157,108 @@ def test_zero_coverage_never_becomes_a_zero_even_with_a_stage2_row(wired):
     assert np.isnan(d1["I_t"])
 
 
-def test_intensity_standardised_within_year_not_globally(wired, monkeypatch):
-    """Two years at wildly different I_t scales (10^2 vs 10^5) -- if
-    standardisation were global, the small-scale year's z-scores would be
-    driven far from 0 by the huge-scale year dominating the combined
-    mean/std. Standardised per year instead, every year with exactly two
-    valid days has a clean, scale-independent signature: +-1/sqrt(2),
-    regardless of the year's absolute I_t level. That signature landing
-    identically in both years is direct evidence the grouping is per-year,
-    not global -- explore/08_retention_rate_by_year.py found real
-    non-trending year-to-year retention swings (47%-81%) that a global
-    standardisation would otherwise leak into gamma in eq. (24) as spurious
-    year-level steps."""
+def _run_intensity_fixture(wired, monkeypatch, i_t_values, window=3, min_periods=2):
+    """Full-coverage days 2024-01-01 .. 2024-01-0N with the given raw I_t
+    series, standardised with a small trailing window so a handful of
+    synthetic days can actually exercise it."""
     tmp_path = wired
-    monkeypatch.setattr(s4, "WINDOW_START", dt.datetime(2023, 12, 30, tzinfo=dt.timezone.utc))
-    monkeypatch.setattr(s4, "WINDOW_END", dt.datetime(2024, 1, 3, tzinfo=dt.timezone.utc))
+    n = len(i_t_values)
+    monkeypatch.setattr(s4, "INTENSITY_ROLLING_WINDOW", window)
+    monkeypatch.setattr(s4, "INTENSITY_MIN_PERIODS", min_periods)
+    monkeypatch.setattr(s4, "WINDOW_START", dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc))
+    monkeypatch.setattr(s4, "WINDOW_END",
+                        dt.datetime(2024, 1, 1, tzinfo=dt.timezone.utc) + dt.timedelta(days=n))
 
-    _write_stage1_manifest(m1.MANIFEST_PATH, {
-        "20231230": 24, "20231231": 24, "20240101": 24, "20240102": 24,
-    })
+    days = [(dt.date(2024, 1, 1) + dt.timedelta(days=i)).strftime("%Y%m%d")
+           for i in range(n)]
+    _write_stage1_manifest(m1.MANIFEST_PATH, {d: 24 for d in days})
     pd.DataFrame([{"DocumentIdentifier": _url(1), "Themes": "OPEC",
                   **{c: 0.0 for c in m1.TONE_COLS}}]).to_parquet(
         s4.STAGE1_OUTPUT, index=False)
-
     with open(s4.STAGE2_MANIFEST, "w", newline="") as f:
         w = csv.writer(f)
         w.writerow(["day", "I_t", "n_candidates", "fetch_failed", "no_text",
                    "lang_skip", "duplicate", "scored"])
-        # 2023: I_t in the hundreds. 2024: I_t in the hundreds of thousands.
-        w.writerow(["20231230", 100, 0, 0, 0, 0, 0, 0])
-        w.writerow(["20231231", 300, 0, 0, 0, 0, 0, 0])
-        w.writerow(["20240101", 100000, 0, 0, 0, 0, 0, 0])
-        w.writerow(["20240102", 300000, 0, 0, 0, 0, 0, 0])
-
+        for d, i_t in zip(days, i_t_values):
+            w.writerow([d, i_t, 0, 0, 0, 0, 0, 0])
     pd.DataFrame(columns=["date", "url_hash", "finbert_score",
                           "outcome"]).to_parquet(s4.STAGE3_LOG, index=False)
 
     s4.main()
+    return pd.read_parquet(s4.OUT_PATH).set_index("date")["intensity"]
 
-    out = pd.read_parquet(s4.OUT_PATH).set_index("date")
-    z = 1 / (2 ** 0.5)
-    for lo, hi in [("2023-12-30", "2023-12-31"), ("2024-01-01", "2024-01-02")]:
-        vals = sorted([out.loc[pd.Timestamp(lo), "intensity"],
-                       out.loc[pd.Timestamp(hi), "intensity"]])
-        assert vals[0] == pytest.approx(-z, abs=1e-6)
-        assert vals[1] == pytest.approx(z, abs=1e-6)
+
+def test_intensity_trailing_window_is_causal_not_look_ahead(wired, monkeypatch):
+    """The whole reason a within-calendar-year version was replaced: day
+    t's standardised intensity must depend only on day t and days before
+    it, never on a day after. Proven directly, not just asserted: run the
+    same leading days twice, once with a huge outlier appended at the end
+    and once without, and require every leading day's value to come back
+    byte-for-byte identical. A calendar-year (or any global) standardisation
+    would fail this -- day 40 of a year is standardised using day 300's
+    value too; a trailing window by construction cannot be."""
+    leading = [100.0, 105.0, 95.0, 110.0, 90.0]
+    with_outlier = _run_intensity_fixture(wired, monkeypatch,
+                                          leading + [1_000_000.0])
+    tmp_path2 = wired
+    # Fresh isolated run for the "without" side -- reuse the same tmp_path's
+    # files, overwritten by a second call to _run_intensity_fixture.
+    without_outlier = _run_intensity_fixture(wired, monkeypatch, leading)
+
+    for i, day in enumerate(without_outlier.index):
+        a, b = with_outlier.iloc[i], without_outlier.iloc[i]
+        if np.isnan(b):
+            assert np.isnan(a), \
+                f"day {day.date()} changed when a FUTURE day's I_t changed -- look-ahead"
+        else:
+            assert a == pytest.approx(b, abs=1e-12), \
+                f"day {day.date()} changed when a FUTURE day's I_t changed -- look-ahead"
+
+
+def test_intensity_below_min_periods_is_nan_not_a_noisy_estimate(wired, monkeypatch):
+    """Fewer trailing valid readings than min_periods -> NaN, not a
+    standardised value computed off too little history to mean anything."""
+    out = _run_intensity_fixture(wired, monkeypatch,
+                                 [100.0, 200.0, 300.0], window=3, min_periods=2)
+    assert np.isnan(out.iloc[0])   # only 1 trailing reading -- below min_periods=2
+    assert not np.isnan(out.iloc[1])   # 2 readings -- meets it
+    assert not np.isnan(out.iloc[2])
+
+
+def test_intensity_window_is_rolling_not_calendar_year(wired, monkeypatch):
+    """A window of 3 spanning a year boundary must use all 3 trailing rows
+    regardless of which calendar year they fall in -- there must be no
+    reset or discontinuity at Jan 1, unlike the groupby-by-year version
+    this replaced."""
+    tmp_path = wired
+    monkeypatch.setattr(s4, "INTENSITY_ROLLING_WINDOW", 3)
+    monkeypatch.setattr(s4, "INTENSITY_MIN_PERIODS", 3)
+    monkeypatch.setattr(s4, "WINDOW_START", dt.datetime(2023, 12, 30, tzinfo=dt.timezone.utc))
+    monkeypatch.setattr(s4, "WINDOW_END", dt.datetime(2024, 1, 3, tzinfo=dt.timezone.utc))
+
+    days = ["20231230", "20231231", "20240101", "20240102"]
+    i_t = [100.0, 100.0, 100.0, 1000.0]   # jump lands exactly on the new year
+    _write_stage1_manifest(m1.MANIFEST_PATH, {d: 24 for d in days})
+    pd.DataFrame([{"DocumentIdentifier": _url(1), "Themes": "OPEC",
+                  **{c: 0.0 for c in m1.TONE_COLS}}]).to_parquet(
+        s4.STAGE1_OUTPUT, index=False)
+    with open(s4.STAGE2_MANIFEST, "w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(["day", "I_t", "n_candidates", "fetch_failed", "no_text",
+                   "lang_skip", "duplicate", "scored"])
+        for d, v in zip(days, i_t):
+            w.writerow([d, v, 0, 0, 0, 0, 0, 0])
+    pd.DataFrame(columns=["date", "url_hash", "finbert_score",
+                          "outcome"]).to_parquet(s4.STAGE3_LOG, index=False)
+
+    s4.main()
+    out = pd.read_parquet(s4.OUT_PATH).set_index("date")["intensity"]
+    # 2024-01-02's window is [2023-12-31, 2024-01-01, 2024-01-02] -- two
+    # 2023 rows and one 2024 row, mixed freely across the boundary.
+    last = out.loc[pd.Timestamp("2024-01-02")]
+    assert not np.isnan(last)
+    manual_window = np.log1p(np.array([100.0, 100.0, 1000.0]))
+    # ddof=1: pandas' rolling().std() default is sample std, not numpy's
+    # population-std default.
+    expected = (manual_window[-1] - manual_window.mean()) / manual_window.std(ddof=1)
+    assert last == pytest.approx(expected, abs=1e-9)
