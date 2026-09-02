@@ -50,6 +50,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 from ..pricing.twofactor import A_tau, TwoFactorParams
 
@@ -589,6 +590,41 @@ def _nonoverlapping_regression(y: np.ndarray, l_obs: np.ndarray, l_filt: np.ndar
     )
 
 
+def _wald_tests(fit) -> tuple[float, float, float, float]:
+    """Joint (b1=b2=0, 'does the pair carry any information') and
+    difference (b1=b2, 'can the two labels be told apart', the study's
+    actual discrimination question) Wald tests, using whatever covariance
+    estimator (HAC or plain) is already attached to `fit`. Matrix-form
+    restrictions rather than string formulas naming 'x1'/'x2' -- this must
+    not depend on statsmodels' auto-generated column names, since the
+    design matrix is always [const, l_obs, l_filt] in that order by
+    construction, not by name.
+
+    Under near-collinearity the individual p-values can both be
+    insignificant while the joint test rejects -- the classic collinearity
+    signature -- and the difference test directly answers whether the
+    encompassing design can tell the two labels apart at all, which
+    neither individual p-value does on its own.
+    """
+    joint = fit.wald_test(np.array([[0, 1, 0], [0, 0, 1]]), scalar=True)
+    diff = fit.wald_test(np.array([[0, 1, -1]]), scalar=True)
+    return (float(joint.statistic), float(joint.pvalue),
+           float(diff.statistic), float(diff.pvalue))
+
+
+def _label_corr_and_vif(l_obs: np.ndarray, l_filt: np.ndarray,
+                        valid: np.ndarray) -> tuple[float, float, float]:
+    """Pearson correlation and variance inflation factors for the two
+    labels over the valid (non-NaN) rows actually used in the fit --
+    VIF > ~10 is the conventional "problematic multicollinearity" line;
+    near-collinear labels inflate the individual coefficient variances
+    even when the pair jointly carries real information."""
+    lo, lf = l_obs[valid], l_filt[valid]
+    corr = float(np.corrcoef(lo, lf)[0, 1])
+    X = sm.add_constant(np.column_stack([lo, lf]))
+    return corr, float(variance_inflation_factor(X, 1)), float(variance_inflation_factor(X, 2))
+
+
 @dataclass
 class HorizonRow:
     h: int
@@ -598,6 +634,13 @@ class HorizonRow:
     hac_maxlags: int
     hac: RegressionResult
     nonoverlap: RegressionResult | None = None
+    joint_wald_stat: float = float("nan")
+    joint_wald_p: float = float("nan")
+    diff_wald_stat: float = float("nan")
+    diff_wald_p: float = float("nan")
+    label_corr: float = float("nan")
+    vif_obs: float = float("nan")
+    vif_filt: float = float("nan")
 
     @property
     def hac_degenerate(self) -> bool:
@@ -611,6 +654,13 @@ class HorizonRow:
                f"b2={self.hac.b2:+.5f}(p={self.hac.p_b2:.4f})"
                + ("  [HAC DEGENERATE -- labels collinear, not usable]"
                  if self.hac.degenerate else ""))
+        if not self.hac.degenerate:
+            line += (f"\n          joint(b1=b2=0): stat={self.joint_wald_stat:.3f} "
+                    f"p={self.joint_wald_p:.4f}   "
+                    f"diff(b1=b2): stat={self.diff_wald_stat:.3f} "
+                    f"p={self.diff_wald_p:.4f}   "
+                    f"corr(L_obs,L_filt)={self.label_corr:.3f}  "
+                    f"VIF=({self.vif_obs:.1f},{self.vif_filt:.1f})")
         if self.nonoverlap is not None:
             if self.nonoverlap.degenerate:
                 line += (f"\n          non-overlap[n={self.nonoverlap.n_obs}]: "
@@ -652,12 +702,22 @@ def run_horizon_robustness(p: TwoFactorParams, x_filt: np.ndarray, log_f: np.nda
         valid = np.isfinite(y) & np.isfinite(l_obs) & np.isfinite(l_filt)
         t_over_h = float(np.sum(valid)) / h
 
+        if r_hac.degenerate:
+            joint_stat = joint_p = diff_stat = diff_p = float("nan")
+            corr = vif_o = vif_f = float("nan")
+        else:
+            joint_stat, joint_p, diff_stat, diff_p = _wald_tests(r_hac.fit)
+            corr, vif_o, vif_f = _label_corr_and_vif(l_obs, l_filt, valid)
+
         r_nonoverlap = None
         if h in nonoverlap_horizons:
             r_nonoverlap = _nonoverlapping_regression(
                 y, l_obs, l_filt, h, target="cross_maturity_spread_change")
 
         rows.append(HorizonRow(
+            joint_wald_stat=joint_stat, joint_wald_p=joint_p,
+            diff_wald_stat=diff_stat, diff_wald_p=diff_p,
+            label_corr=corr, vif_obs=vif_o, vif_filt=vif_f,
             h=h, n_obs=r_hac.n_obs, t_over_h=t_over_h,
             reversion_frac=reversion_fraction(p.kappa, h),
             hac_maxlags=maxlags, hac=r_hac,
@@ -678,3 +738,148 @@ def print_horizon_table(rows: list[HorizonRow]) -> None:
          f"{'increasing' if increasing else 'decreasing' if decreasing else 'no'}")
     print("(HAC standard errors at h=252 rest on ~14 independent blocks -- "
          "report the number, do not lean on the p-value it implies.)")
+
+    print("\nreversion-normalised coefficients (b/phi(h), x1e3) -- should be "
+         "roughly flat under the signal-accumulation story:")
+    print(f"  {'h':>5}  {'phi(h)':>8}  {'b1/phi (x1e3)':>15}  {'b2/phi (x1e3)':>15}")
+    for r in rows:
+        phi = r.reversion_frac
+        b1_norm = 1e3 * r.hac.b1 / phi if phi > 0 else float("nan")
+        b2_norm = 1e3 * r.hac.b2 / phi if phi > 0 else float("nan")
+        print(f"  {r.h:5d}  {phi:8.3f}  {b1_norm:15.2f}  {b2_norm:15.2f}")
+
+
+# =============================== 8. Label agreement and its consequences ===
+#
+# Study A's spec was written assuming ~85% naive/filtered agreement. The
+# non-overlap degeneracy at h=66/132 (Sec. 7) is a symptom of the actual
+# rate being far higher: the encompassing regression identifies b1 and b2
+# only from DISAGREEMENT days, so a higher true agreement rate means less
+# information for the regression to separate the two labels with at every
+# horizon, not just the sparsely-sampled ones -- which is the more
+# consequential reading of the degenerate rows, not a sampling curiosity.
+
+
+def label_agreement(l_obs: np.ndarray, l_filt: np.ndarray) -> dict:
+    """Rate and count of naive/filtered agreement over valid (non-NaN in
+    both) rows -- the single number that determines how much information
+    the encompassing regression has to separate b1 from b2 with at any
+    horizon, since near-collinearity is a direct function of this rate."""
+    valid = np.isfinite(l_obs) & np.isfinite(l_filt)
+    disagree = (l_obs != l_filt) & valid
+    n_valid = int(valid.sum())
+    n_disagree = int(disagree.sum())
+    return {
+        "n_valid": n_valid,
+        "n_disagree": n_disagree,
+        "agreement_rate": 1.0 - n_disagree / n_valid if n_valid else float("nan"),
+    }
+
+
+def disagreement_by_year(l_obs: np.ndarray, l_filt: np.ndarray,
+                         dates: pd.DatetimeIndex) -> pd.DataFrame:
+    """Disagreement count and rate per calendar year -- whether the ~93.7%
+    overall rate is uniform or concentrated in specific (volatile) years."""
+    valid = np.isfinite(l_obs) & np.isfinite(l_filt)
+    disagree = (l_obs != l_filt) & valid
+    df = pd.DataFrame({"year": pd.DatetimeIndex(dates).year[valid],
+                       "disagree": disagree[valid]})
+    out = df.groupby("year")["disagree"].agg(n_disagree="sum", n_days="count")
+    out["rate"] = out["n_disagree"] / out["n_days"]
+    return out
+
+
+def disagreement_clustering(l_obs: np.ndarray, l_filt: np.ndarray,
+                            log_f: np.ndarray) -> dict:
+    """Do disagreements cluster near sign flips (small |s_t|), as the
+    model predicts, or are they scattered through time regardless of the
+    spread's own level? Also reports the run-length structure (contiguous
+    disagreement streaks), since a sparse periodic sampler's chance of
+    hitting a disagreement depends on how clustered they are, not just the
+    marginal rate."""
+    s = front_spread(log_f)
+    valid = np.isfinite(l_obs) & np.isfinite(l_filt) & np.isfinite(s)
+    disagree = (l_obs != l_filt) & valid
+    agree = valid & ~disagree
+
+    d = disagree.astype(int)
+    change = np.diff(np.concatenate([[0], d, [0]]))
+    starts = np.where(change == 1)[0]
+    ends = np.where(change == -1)[0]
+    run_lengths = ends - starts
+
+    return {
+        "median_abs_s_disagree": float(np.median(np.abs(s[disagree]))) if disagree.any() else float("nan"),
+        "median_abs_s_agree": float(np.median(np.abs(s[agree]))) if agree.any() else float("nan"),
+        "mean_abs_s_disagree": float(np.mean(np.abs(s[disagree]))) if disagree.any() else float("nan"),
+        "mean_abs_s_agree": float(np.mean(np.abs(s[agree]))) if agree.any() else float("nan"),
+        "n_runs": int(len(run_lengths)),
+        "run_length_median": float(np.median(run_lengths)) if len(run_lengths) else float("nan"),
+        "run_length_max": int(run_lengths.max()) if len(run_lengths) else 0,
+        "n_disagree": int(disagree.sum()),
+    }
+
+
+def _circular_block_indices(rng: np.random.Generator, n: int, block_length: int) -> np.ndarray:
+    """One circular-block-bootstrap resample of indices 0..n-1: draw block
+    start points uniformly, wrap each block around the end of the series
+    circularly, concatenate to length n. Preserves each series' own serial
+    dependence up to ~block_length, unlike an i.i.d. row permutation."""
+    n_blocks = int(np.ceil(n / block_length))
+    starts = rng.integers(0, n, size=n_blocks)
+    idx = np.concatenate([(np.arange(block_length) + s) % n for s in starts])
+    return idx[:n]
+
+
+def circular_block_bootstrap_monotonicity(
+    p: TwoFactorParams, x_filt: np.ndarray, log_f: np.ndarray, tau: np.ndarray,
+    horizons: tuple[int, ...] = EXTENDED_HORIZONS,
+    block_length: int = 252, n_boot: int = 500, seed: int = 0,
+) -> dict:
+    """Null distribution for "|t(b2)| monotone increasing across all five
+    horizons" -- the pre-stated prediction under the signal-accumulation
+    story. The two labels (paired, same resample indices, so their own
+    cross-dependence is preserved) are circular-block-bootstrapped against
+    the REAL, unresampled target series: this breaks any true temporal
+    alignment between labels and y while preserving each label series'
+    own serial dependence structure (block_length ~252), which is what
+    makes a naive i.i.d. permutation test invalid for overlapping-window
+    data. Replicates where any horizon's regression is degenerate (labels
+    collinear in that particular resample) are skipped, not counted as
+    non-monotone or monotone -- reported explicitly.
+    """
+    rng = np.random.default_rng(seed)
+    l_obs = naive_label(log_f)
+    l_filt = filtered_label(p, x_filt, tau)
+    n = len(l_obs)
+
+    ys = {h: cross_maturity_spread_change(log_f, h) for h in horizons}
+    maxlags = {h: int(np.floor(1.5 * h)) for h in horizons}
+
+    n_monotone = 0
+    n_skipped = 0
+    for _ in range(n_boot):
+        idx = _circular_block_indices(rng, n, block_length)
+        l_obs_b, l_filt_b = l_obs[idx], l_filt[idx]
+
+        t_abs = []
+        skip = False
+        for h in horizons:
+            r = encompassing_regression(ys[h], l_obs_b, l_filt_b, h,
+                                        maxlags=maxlags[h])
+            if r.degenerate or not np.isfinite(r.se_b2) or r.se_b2 == 0:
+                skip = True
+                break
+            t_abs.append(abs(r.b2 / r.se_b2))
+        if skip:
+            n_skipped += 1
+            continue
+        if all(t_abs[i] <= t_abs[i + 1] for i in range(len(t_abs) - 1)):
+            n_monotone += 1
+
+    n_used = n_boot - n_skipped
+    return {
+        "n_boot": n_boot, "n_skipped": n_skipped, "n_used": n_used,
+        "n_monotone": n_monotone,
+        "fraction_monotone": n_monotone / n_used if n_used else float("nan"),
+    }

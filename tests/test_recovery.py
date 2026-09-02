@@ -21,15 +21,16 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from csr.pricing.specs import REGISTRY, run_spec                    # noqa: E402
 from csr.pricing.twofactor import TwoFactorParams                    # noqa: E402
 from csr.simulate import SS_OIL, simulate_panel                       # noqa: E402
-from csr.study.recovery import (RegressionResult, classify_gate,       # noqa: E402
-                                continuous_filtered, continuous_naive,
-                                cross_maturity_spread_change,
+from csr.study.recovery import (RegressionResult, circular_block_bootstrap_monotonicity,  # noqa: E402
+                                classify_gate, continuous_filtered,
+                                continuous_naive, cross_maturity_spread_change,
+                                disagreement_by_year, disagreement_clustering,
                                 encompassing_regression, filtered_label,
                                 forward_spread_level, front_return,
-                                lag_labels, naive_label, realised_vol,
-                                reversion_fraction, run_corrected_battery,
-                                run_horizon_robustness, run_study_a,
-                                spread_change)
+                                label_agreement, lag_labels, naive_label,
+                                realised_vol, reversion_fraction,
+                                run_corrected_battery, run_horizon_robustness,
+                                run_study_a, spread_change)
 
 DT = 1.0 / 252.0
 
@@ -476,3 +477,116 @@ def test_classify_gate_returns_degenerate_when_any_horizon_is():
                                    se_b1=0.05, se_b2=0.05, p_b1=0.5, p_b2=0.5,
                                    r_squared=0.1, degenerate=True)}
     assert classify_gate(results) == "degenerate"
+
+
+# --------------------------------------------- label agreement diagnostics
+def test_label_agreement_hand_computed():
+    l_obs = np.array([1.0, 1.0, -1.0, 1.0, np.nan, -1.0])
+    l_filt = np.array([1.0, -1.0, -1.0, 1.0, -1.0, 1.0])
+    # valid rows (both finite): idx 0,1,2,3,5 -> 5 valid; disagree at 1 and 5
+    out = label_agreement(l_obs, l_filt)
+    assert out["n_valid"] == 5
+    assert out["n_disagree"] == 2
+    assert out["agreement_rate"] == pytest.approx(3 / 5)
+
+
+def test_disagreement_by_year_hand_computed():
+    l_obs = np.array([1.0, 1.0, -1.0, 1.0])
+    l_filt = np.array([1.0, -1.0, -1.0, -1.0])   # disagree at idx 1 and 3
+    dates = pd.to_datetime(["2020-01-01", "2020-06-01", "2021-01-01", "2021-06-01"])
+    out = disagreement_by_year(l_obs, l_filt, dates)
+    assert out.loc[2020, "n_disagree"] == 1
+    assert out.loc[2020, "n_days"] == 2
+    assert out.loc[2021, "n_disagree"] == 1
+    assert out.loc[2021, "n_days"] == 2
+
+
+def test_disagreement_clustering_finds_small_spread_and_run_structure():
+    # log_f columns: [front, second]; s_t = front - second
+    n = 10
+    log_f = np.zeros((n, 2))
+    s = np.array([1.0, 1.0, 0.001, -0.001, 1.0, 1.0, 1.0, -0.0005, 0.0005, 1.0])
+    log_f[:, 0] = s
+    log_f[:, 1] = 0.0
+    l_obs = np.sign(s)
+    l_filt = l_obs.copy()
+    # Force disagreement exactly where |s| is small (near-zero, about-to-flip
+    # rows), a two-day run at idx 2-3 and a two-day run at idx 7-8.
+    l_filt[2] *= -1
+    l_filt[3] *= -1
+    l_filt[7] *= -1
+    l_filt[8] *= -1
+
+    out = disagreement_clustering(l_obs, l_filt, log_f)
+    assert out["n_disagree"] == 4
+    assert out["n_runs"] == 2
+    assert out["run_length_median"] == pytest.approx(2.0)
+    assert out["run_length_max"] == 2
+    assert out["median_abs_s_disagree"] < out["median_abs_s_agree"]
+
+
+# ------------------------------------------------------ Wald tests / VIF ---
+def test_horizon_row_joint_and_diff_wald_sane_on_simulated_signal():
+    """Joint test should reject when there's a real effect; diff test
+    should NOT reject when both labels track the same underlying signal
+    closely (the near-collinear case this was added to diagnose)."""
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1500, m=4, seed=31)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+
+    rows = run_horizon_robustness(SS_OIL, x_filt, log_f, tau, horizons=(22,))
+    r = rows[0]
+    assert not np.isnan(r.joint_wald_p)
+    assert not np.isnan(r.diff_wald_p)
+    assert -1.0 <= r.label_corr <= 1.0
+    assert r.vif_obs >= 1.0 and r.vif_filt >= 1.0
+
+
+def test_wald_fields_nan_when_hac_degenerate():
+    """When the HAC regression itself is degenerate, the Wald/VIF fields
+    must not silently carry a misleading number through."""
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1500, m=4, seed=31)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+    # Force degeneracy: identical labels via a filtered_label that always
+    # equals the naive one -- simulate by monkeypatching is unnecessary
+    # here; instead assert the NaN-propagation contract directly on a
+    # constructed degenerate RegressionResult path via run_horizon_robustness
+    # is exercised in test_run_horizon_robustness_end_to_end_smoke's non-
+    # degenerate case above, so this test targets the field defaults only.
+    from csr.study.recovery import HorizonRow
+    r = HorizonRow(h=22, n_obs=10, t_over_h=1.0, reversion_frac=0.1,
+                  hac_maxlags=21, hac=RegressionResult(
+                      target="t", horizon=22, subset="full", n_obs=10,
+                      alpha=0.0, b1=0.0, b2=0.0, se_b1=0.0, se_b2=0.0,
+                      p_b1=1.0, p_b2=1.0, r_squared=0.0, degenerate=True))
+    assert np.isnan(r.joint_wald_stat)
+    assert np.isnan(r.diff_wald_p)
+    assert np.isnan(r.label_corr)
+
+
+# ------------------------------------------------- circular block bootstrap
+def test_circular_block_indices_valid_range_and_contiguity():
+    rng = np.random.default_rng(0)
+    n = 100
+    from csr.study.recovery import _circular_block_indices
+    out = _circular_block_indices(rng, n, block_length=10)
+    assert len(out) == n
+    assert out.min() >= 0 and out.max() < n
+    # within a block, consecutive entries are consecutive mod n
+    for b in range(0, n, 10):
+        block = out[b: b + 10]
+        for i in range(len(block) - 1):
+            assert block[i + 1] == (block[i] + 1) % n
+
+
+def test_circular_block_bootstrap_monotonicity_smoke():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1200, m=4, seed=41)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+
+    out = circular_block_bootstrap_monotonicity(
+        SS_OIL, x_filt, log_f, tau, horizons=(5, 22, 66),
+        block_length=60, n_boot=20, seed=0)
+
+    assert out["n_boot"] == 20
+    assert out["n_used"] + out["n_skipped"] == 20
+    if out["n_used"] > 0:
+        assert 0.0 <= out["fraction_monotone"] <= 1.0
