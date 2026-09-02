@@ -1,10 +1,10 @@
 # %% [markdown]
 # # Dry run: Stage 4 news aggregate -> NewsData -> run_spec on S0/SD/SM
 #
-# Not for results -- Stage 2 has only reached roughly half the window, and
-# the specs aren't tuned (SS_OIL is a plausible starting point, not a fit).
-# This is integration testing on real data, ahead of Study A, so that a join
-# bug surfaces now rather than after the remaining ~1,600 days finish:
+# Not for results -- the specs aren't tuned (SS_OIL is a plausible starting
+# point, not a fit). This is integration testing on real data, ahead of
+# Study A, so that a join bug surfaces now rather than during the actual
+# run:
 #
 # - Does the date alignment between the news table (every calendar day) and
 #   the price panel (trading days only) work?
@@ -14,12 +14,21 @@
 #   missing-observation handling, rather than crashing or silently zeroing?
 # - Does SM still nest exactly against S0 with real news data, not just the
 #   synthetic fixture in tests/test_nesting.py?
+# - With April 2020 now in scope (Stage 2 finished the full window): does a
+#   day with a MISSING price cell (2020-04-20's front-month settlement was
+#   -$37.63 -- Panel's rule 1 makes that cell NaN in log_f, never floored)
+#   and a PRESENT news row -- filter correctly, exercising coverage NaNs,
+#   missing-observation handling, and R_t construction simultaneously? And
+#   does n_obs exactly equal isfinite(log_f).sum() + isfinite(news).sum(),
+#   proving the filter counts every real observation once, on each side
+#   independently, with nothing double-counted or silently dropped?
 #
 # Already found and fixed via this exercise, before this script even ran
-# cleanly: append_news_block() was not lag-shifting the news measurement
-# variance the same way it shifts the news observation, which silently
-# poisoned the log-likelihood on any real gap day adjacent to covered days.
-# See the commit on src/csr/state/augment.py and src/csr/pricing/specs.py.
+# cleanly, on an earlier partial-window run: append_news_block() was not
+# lag-shifting the news measurement variance the same way it shifts the
+# news observation (silently poisoned the log-likelihood on any gap day
+# adjacent to covered days), and _driver_term() let NaN*0=NaN corrupt the
+# driver channel regardless of B. See the three commits on src/csr/.
 
 # %%
 import sys
@@ -50,21 +59,18 @@ news_df = pd.read_parquet(ROOT / "data" / "stage4_daily.parquet")
 news_df = news_df.set_index("date").sort_index()
 
 # %% [markdown]
-# ## Window: slice both to where Stage 2 has actually produced real rows
+# ## Window: the longest contiguous stretch of real Stage 4 rows
 #
-# Not the full 2015-2024 span -- most of it is still NaN because Stage 2 is
-# still working through it. Slicing to the completed stretch exercises real
-# joined news+price data on ~1,200 trading days rather than mostly-NaN rows,
-# which is a weaker test of the actual join logic.
+# Stage 2 has now finished the entire 2015-02-19..2024-04-05 window, so this
+# should simply resolve to the full span -- computed via the contiguous-run
+# logic rather than assumed, since it's cheap insurance against a repeat of
+# the one-off validation row (an isolated 2024-01-15 scored ahead of the
+# sequential frontier during development) that made a naive first/last
+# non-null check silently pull in a mostly-empty gap on an earlier,
+# partial-window run of this same script.
 
 # %%
 has_news = news_df["n_t"].notna()
-# Longest CONTIGUOUS run, not naive first/last non-null: Stage 2 processes
-# days sequentially, but a handful of one-off validation runs from earlier
-# in development landed isolated rows far ahead of the sequential frontier
-# (e.g. a single already-scored 2024-01-15 sitting alone past an otherwise
-# solid Feb-2015-to-late-2019 block). Naive first/last would silently pull
-# in the entire mostly-NaN gap between them.
 run_id = (~has_news).cumsum()
 run_lengths = has_news.groupby(run_id).transform("size").where(has_news, 0)
 best_run = run_id[run_lengths == run_lengths.max()].iloc[0]
@@ -141,6 +147,57 @@ other_missing = np.isnan(news.dispersion) | np.isnan(news.counts)
 assert np.array_equal(feat_missing, other_missing), \
     "features/dispersion/counts NaN patterns disagree after the join"
 print("NaN-alignment invariant holds across the joined series")
+
+# %% [markdown]
+# ## April 2020: a real day with a missing price cell AND present news
+#
+# 2020-04-20's front-month settlement was -$37.63; Panel's rule 1 (never
+# floor a non-positive price) makes that one cell NaN in log_f while the
+# other three contracts and every news field that day stay real. This is
+# the highest-stress row in the whole join: coverage NaNs, missing-
+# observation handling, and R_t construction all have to be right on the
+# SAME row at once, on the two channels independently.
+
+# %%
+apr20 = pd.Timestamp("2020-04-20")
+assert apr20 in panel.dates, "2020-04-20 isn't a trading day in the sliced panel"
+row = np.where(panel.dates == apr20)[0][0]
+print(f"2020-04-20 log_f: {panel.log_f[row]} "
+     f"(front-month NaN, others finite: {np.isfinite(panel.log_f[row]).tolist()})")
+assert np.isnan(panel.log_f[row, 0]) and np.isfinite(panel.log_f[row, 1:]).all(), \
+    "expected exactly the front-month cell to be NaN on 2020-04-20"
+print(f"2020-04-20 news: n_t={aligned.loc[apr20, 'n_t']:.0f}  "
+     f"sent_mean={aligned.loc[apr20, 'sent_mean']:.3f}  "
+     f"feature={news.features[row, 0]:.3f}")
+assert np.isfinite(news.features[row, 0]), \
+    "expected a present (non-NaN) news reading on 2020-04-20"
+
+# %% [markdown]
+# ## n_obs invariant: every real observation counted exactly once
+#
+# Reconstructs the same lag-shifted news array append_news_block() builds
+# internally (news.features shifted by lag, per the R-shift fix), then
+# checks run_spec's reported n_obs against the two sides' finite counts
+# computed completely independently of filter_uv -- proving the filter
+# neither double-counts nor silently drops an observation, on real data
+# that includes both a missing price cell and the isolated NaN the lag
+# shift itself introduces at the series' tail.
+
+# %%
+LAG = 1
+y_news_expected = np.full_like(news.features, np.nan)
+y_news_expected[: len(news.features) - LAG] = news.features[LAG:]
+expected_n_obs = int(np.isfinite(panel.log_f).sum() + np.isfinite(y_news_expected).sum())
+
+llM_chk, _, _, _, nobsM_chk = run_spec(REGISTRY["SM"], SS_OIL, panel.log_f, panel.tau,
+                                       DT, news, G=np.array([[0.3, 0.2]]), lag=LAG)
+print(f"n_obs: reported={nobsM_chk}  "
+     f"isfinite(log_f).sum()={int(np.isfinite(panel.log_f).sum())} + "
+     f"isfinite(shifted news).sum()={int(np.isfinite(y_news_expected).sum())} "
+     f"= {expected_n_obs}")
+assert nobsM_chk == expected_n_obs, \
+    f"n_obs mismatch: filter reported {nobsM_chk}, independently counted {expected_n_obs}"
+print("n_obs invariant holds: every real observation counted exactly once")
 
 # %% [markdown]
 # ## Run S0 (no news) -- must simply produce a finite likelihood
