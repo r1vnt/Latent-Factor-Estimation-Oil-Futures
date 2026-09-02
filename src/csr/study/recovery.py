@@ -370,3 +370,122 @@ def print_report(result: StudyAResult) -> None:
     print(f"\nFull battery ({len(result.all_results)} regressions):")
     for r in result.all_results:
         print(f"  {r}")
+
+
+# ======================================= 6. Shared-measurement-error fix ===
+#
+# The original PRIMARY target, spread_change, is s_{t+h} - s_t. The naive
+# label is sign(s_t). The same s_t therefore appears in both the label and
+# the target, negated -- so noise in s_t mechanically produces a negative
+# naive-label coefficient with no true predictive content behind it, and
+# the filtered label, having denoised exactly that s_t, structurally cannot
+# exploit the same mechanical relationship. That artefact predicts every
+# anomaly the original run_study_a battery showed: b1 negative, b2 positive
+# on data with zero differential signal; naive dominating hardest in the
+# high-vol tercile (where the shared noise is largest, not where the
+# theory's denoising advantage should be largest); realised_vol (which
+# shares no component with either label) being the one target where the
+# filtered label won cleanly. Reproduced independently on a pure random
+# walk with a perfect second label before this section was written.
+#
+# The three specifications below each break the shared-noise mechanism a
+# different way, without touching naive_label, filtered_label, or any of
+# the ORIGINAL targets/regressions above -- those 20 regressions stand as
+# the naive-specification panel that motivated this section, not something
+# this corrects retroactively.
+
+
+def cross_maturity_spread_change(log_f: np.ndarray, h: int,
+                                 far: tuple[int, int] = (2, 3)) -> np.ndarray:
+    """DECISIVE spec. y_t^(h) built from a DIFFERENT contract pair (C3-C4
+    by default) than the labels, which always use C1/C2 (naive_label,
+    filtered_label). C3 and C4's measurement errors are independent of
+    C1/C2's under the model's diagonal Hdiag, so this target shares no
+    noise component with either label -- if the filtered label still loses
+    here, the original Gate 4 fail is real, not an artefact."""
+    s_far = log_f[:, far[0]] - log_f[:, far[1]]
+    y = np.full_like(s_far, np.nan)
+    if h < len(s_far):
+        y[: len(s_far) - h] = s_far[h:] - s_far[:-h]
+    return y
+
+
+def forward_spread_level(log_f: np.ndarray, h: int) -> np.ndarray:
+    """y_t^(h) = s_{t+h}, a LEVEL rather than a change. s_t itself never
+    enters the target, so it cannot appear (negated) in both the naive
+    label sign(s_t) and y the way it did in the original spread_change."""
+    s = front_spread(log_f)
+    y = np.full_like(s, np.nan)
+    if h < len(s):
+        y[: len(s) - h] = s[h:]
+    return y
+
+
+def lag_labels(l_obs: np.ndarray, l_filt: np.ndarray) -> tuple[np.ndarray, np.ndarray]:
+    """Shift both labels back one session: L_{t-1} predicts y_t, so the
+    label's own measurement noise (from day t-1) and the target's (from
+    day t, via s_t in the original spread_change construction) come from
+    different days -- independent under the model's i.i.d. measurement-
+    error assumption, rather than the same shared s_t."""
+    l_obs_lag = np.full_like(l_obs, np.nan)
+    l_filt_lag = np.full_like(l_filt, np.nan)
+    l_obs_lag[1:] = l_obs[:-1]
+    l_filt_lag[1:] = l_filt[:-1]
+    return l_obs_lag, l_filt_lag
+
+
+@dataclass
+class CorrectedResult:
+    cross_maturity: dict[int, RegressionResult]
+    forward_level: dict[int, RegressionResult]
+    lagged_labels: dict[int, RegressionResult]
+    gate: GateVerdict   # decided on cross_maturity, the decisive spec
+
+    def all_results(self) -> list[RegressionResult]:
+        return (list(self.cross_maturity.values())
+               + list(self.forward_level.values())
+               + list(self.lagged_labels.values()))
+
+
+def run_corrected_battery(p: TwoFactorParams, x_filt: np.ndarray, log_f: np.ndarray,
+                          tau: np.ndarray) -> CorrectedResult:
+    """The three shared-measurement-error-free specifications, each run at
+    both required horizons. Reuses encompassing_regression and
+    classify_gate unmodified -- only the label/target CONSTRUCTION differs
+    from the original battery, not the test machinery itself."""
+    l_obs = naive_label(log_f)
+    l_filt = filtered_label(p, x_filt, tau)
+    l_obs_lag, l_filt_lag = lag_labels(l_obs, l_filt)
+
+    cross_maturity: dict[int, RegressionResult] = {}
+    forward_level: dict[int, RegressionResult] = {}
+    lagged_labels: dict[int, RegressionResult] = {}
+
+    for h in HORIZONS:
+        cross_maturity[h] = encompassing_regression(
+            cross_maturity_spread_change(log_f, h), l_obs, l_filt, h,
+            target="cross_maturity_spread_change", subset="full")
+        forward_level[h] = encompassing_regression(
+            forward_spread_level(log_f, h), l_obs, l_filt, h,
+            target="forward_spread_level", subset="full")
+        lagged_labels[h] = encompassing_regression(
+            spread_change(log_f, h), l_obs_lag, l_filt_lag, h,
+            target="spread_change", subset="lagged_labels")
+
+    gate = classify_gate(cross_maturity)
+    return CorrectedResult(cross_maturity=cross_maturity, forward_level=forward_level,
+                           lagged_labels=lagged_labels, gate=gate)
+
+
+def print_corrected_report(result: CorrectedResult) -> None:
+    print(f"\n{'=' * 70}\nCORRECTED GATE 4 VERDICT (cross-maturity, decisive): "
+         f"{result.gate.upper()}\n{'=' * 70}")
+    print("\nCross-maturity (labels from C1-C2, target from C3-C4):")
+    for h in HORIZONS:
+        print(f"  {result.cross_maturity[h]}")
+    print("\nForward-only (y = s_{t+h} as a level, s_t not in the target):")
+    for h in HORIZONS:
+        print(f"  {result.forward_level[h]}")
+    print("\nLagged labels (L_{t-1} predicting y_t):")
+    for h in HORIZONS:
+        print(f"  {result.lagged_labels[h]}")

@@ -23,9 +23,12 @@ from csr.pricing.twofactor import TwoFactorParams                    # noqa: E40
 from csr.simulate import SS_OIL, simulate_panel                       # noqa: E402
 from csr.study.recovery import (RegressionResult, classify_gate,       # noqa: E402
                                 continuous_filtered, continuous_naive,
+                                cross_maturity_spread_change,
                                 encompassing_regression, filtered_label,
-                                front_return, naive_label, realised_vol,
-                                run_study_a, spread_change)
+                                forward_spread_level, front_return,
+                                lag_labels, naive_label, realised_vol,
+                                run_corrected_battery, run_study_a,
+                                spread_change)
 
 DT = 1.0 / 252.0
 
@@ -257,3 +260,107 @@ def test_run_study_a_end_to_end_smoke():
     assert len(result.all_results) > 10
     for r in result.all_results:
         assert np.isfinite(r.b1) and np.isfinite(r.b2)
+
+
+# ------------------------------------------ shared-measurement-error fix ---
+def test_cross_maturity_spread_change_hand_computed():
+    log_f = np.array([
+        [0.0, 0.0, 4.00, 3.90],
+        [0.0, 0.0, 4.10, 3.80],
+        [0.0, 0.0, 4.20, 3.70],
+    ])
+    # s_far = C3 - C4 = [0.10, 0.30, 0.50]
+    y = cross_maturity_spread_change(log_f, h=1, far=(2, 3))
+    assert y[0] == pytest.approx(0.30 - 0.10)
+    assert y[1] == pytest.approx(0.50 - 0.30)
+    assert np.isnan(y[2])
+
+
+def test_cross_maturity_default_uses_contracts_3_and_4():
+    log_f = np.array([[0.0, 0.0, 4.0, 3.9], [0.0, 0.0, 4.1, 3.8]])
+    y_default = cross_maturity_spread_change(log_f, h=1)
+    y_explicit = cross_maturity_spread_change(log_f, h=1, far=(2, 3))
+    np.testing.assert_array_equal(y_default, y_explicit)
+
+
+def test_forward_spread_level_does_not_depend_on_s_t():
+    """The whole point: s_t must not enter this target at all. Proven
+    directly -- change ONLY row t (s_t) while holding row t+h (s_{t+h})
+    fixed, at h=2 so the two rows are distinct, and y_t (which depends only
+    on s_{t+h}) must not move."""
+    log_f_a = np.array([[4.0, 3.9], [4.3, 4.1], [4.5, 4.0]])   # s = [0.1, 0.2, 0.5]
+    log_f_b = log_f_a.copy()
+    log_f_b[0] = [9.0, 1.0]   # s_0 changed drastically; s_2 (row 2) untouched
+
+    y_a = forward_spread_level(log_f_a, h=2)
+    y_b = forward_spread_level(log_f_b, h=2)
+    assert y_a[0] == pytest.approx(0.5)          # = s_2, unaffected by s_0
+    assert y_b[0] == pytest.approx(y_a[0])        # changing s_0 didn't move it
+
+
+def test_forward_spread_level_hand_computed():
+    log_f = np.array([[4.0, 3.9], [4.5, 4.0], [4.2, 3.7]])
+    # s = [0.1, 0.5, 0.5]
+    y = forward_spread_level(log_f, h=1)
+    assert y[0] == pytest.approx(0.5)   # s_1, not s_1 - s_0
+    assert y[1] == pytest.approx(0.5)   # s_2, not s_2 - s_1
+    assert np.isnan(y[2])
+
+
+def test_lag_labels_shifts_by_one_session():
+    l_obs = np.array([1.0, -1.0, 1.0, 1.0])
+    l_filt = np.array([-1.0, 1.0, -1.0, 1.0])
+    lo, lf = lag_labels(l_obs, l_filt)
+    assert np.isnan(lo[0]) and np.isnan(lf[0])
+    assert np.array_equal(lo[1:], l_obs[:-1])
+    assert np.array_equal(lf[1:], l_filt[:-1])
+
+
+def test_run_corrected_battery_end_to_end_smoke():
+    # n=800, not 400: at n=400/seed=13 the filtered label never flips sign
+    # in this particular short simulated window (SS_OIL's ~170-day
+    # half-life), making it exactly collinear with the intercept -- a
+    # short-window artefact of the smoke test's own sample, not something
+    # the real ~3,600-day fitted run on WTI exhibits.
+    log_f, tau, _ = simulate_panel(SS_OIL, n=800, m=4, seed=13)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+
+    result = run_corrected_battery(SS_OIL, x_filt, log_f, tau)
+
+    assert result.gate in ("pass", "partial", "fail", "inconclusive")
+    assert set(result.cross_maturity.keys()) == {5, 22}
+    assert set(result.forward_level.keys()) == {5, 22}
+    assert set(result.lagged_labels.keys()) == {5, 22}
+    for r in result.all_results():
+        assert np.isfinite(r.b1) and np.isfinite(r.b2)
+
+
+def test_shared_noise_artefact_vanishes_under_cross_maturity_with_a_perfect_label():
+    """Direct proof the fix works, not just documentation. Simulated data
+    has a KNOWN true state (states[:,0] = true chi_t), so a "perfect"
+    filtered label built from it -- no estimation noise at all -- has, by
+    construction, no genuine information the naive label doesn't already
+    approximate. Any apparent naive-label edge under the ORIGINAL
+    spread_change target is therefore pure shared-measurement-error
+    artefact: s_t appears (negated) in both sign(s_t) and s_{t+h}-s_t. The
+    same comparison under cross_maturity_spread_change, which shares no
+    measurement-error component with either label, must not reproduce it."""
+    log_f, tau, states = simulate_panel(SS_OIL, n=1500, m=4, seed=17)
+    x_true = np.zeros((len(states), 4))
+    x_true[:, 0] = states[:, 0]   # true chi_t -- a "perfect" filtered state
+
+    l_obs = naive_label(log_f)
+    l_filt_perfect = filtered_label(SS_OIL, x_true, tau)
+    h = 22
+
+    r_orig = encompassing_regression(spread_change(log_f, h), l_obs, l_filt_perfect, h)
+    r_cross = encompassing_regression(cross_maturity_spread_change(log_f, h),
+                                      l_obs, l_filt_perfect, h)
+
+    # The artefact's signature, reproduced: strongly significant negative
+    # b1 despite a PERFECT second label that has denoised away everything
+    # genuinely informative.
+    assert r_orig.b1 < 0
+    assert r_orig.b1_significant
+    # Under cross-maturity that mechanical bias must not survive.
+    assert abs(r_cross.b1) < abs(r_orig.b1) * 0.5
