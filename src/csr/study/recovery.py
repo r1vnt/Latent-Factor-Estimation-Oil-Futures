@@ -177,6 +177,7 @@ class RegressionResult:
     p_b2: float
     r_squared: float
     fit: object = field(repr=False, default=None)   # the raw statsmodels result
+    degenerate: bool = False   # design matrix rank-deficient -- see __post_init__
 
     @property
     def b1_significant(self) -> bool:
@@ -188,7 +189,16 @@ class RegressionResult:
 
     def pattern(self) -> str:
         """Which of the four sig/insig combinations this regression landed
-        in -- the building block classify_gate aggregates across horizons."""
+        in -- the building block classify_gate aggregates across horizons.
+        "degenerate" is a fifth, deliberately-not-sig/insig outcome: the
+        design matrix was rank-deficient (l_obs and l_filt collinear, most
+        often because they were IDENTICAL over the fitted rows -- a real
+        possibility on a small or sparsely-sampled subset, since the two
+        labels agree the large majority of the time on daily data), so b1
+        and b2 are not separately identified and neither their point
+        estimates nor p-values mean what they'd normally mean."""
+        if self.degenerate:
+            return "degenerate"
         if self.b2_significant and not self.b1_significant:
             return "b2_only"
         if self.b2_significant and self.b1_significant:
@@ -198,10 +208,12 @@ class RegressionResult:
         return "neither"
 
     def __str__(self) -> str:
+        note = "" if not self.degenerate else \
+              "  (labels collinear over these rows -- b1/b2 not separately identified)"
         return (f"[{self.target} h={self.horizon} {self.subset}] n={self.n_obs}  "
                f"b1(naive)={self.b1:+.4f} (p={self.p_b1:.4f})  "
                f"b2(filt)={self.b2:+.4f} (p={self.p_b2:.4f})  "
-               f"R2={self.r_squared:.4f}  [{self.pattern()}]")
+               f"R2={self.r_squared:.4f}  [{self.pattern()}]{note}")
 
 
 def encompassing_regression(y: np.ndarray, l_obs: np.ndarray, l_filt: np.ndarray,
@@ -232,18 +244,25 @@ def encompassing_regression(y: np.ndarray, l_obs: np.ndarray, l_filt: np.ndarray
     alpha, b1, b2 = res.params
     se_b1, se_b2 = res.bse[1], res.bse[2]
     p_b1, p_b2 = res.pvalues[1], res.pvalues[2]
+    # rank < 3 columns (const, l_obs, l_filt): l_obs and l_filt were
+    # collinear over the FITTED rows -- most often because they were
+    # exactly identical, a real possibility on a small or sparsely-sampled
+    # subset since the two labels agree on the large majority of days.
+    # b1/b2 are then not separately identified; statsmodels still returns
+    # a (minimum-norm) split, which is not a meaningful result.
+    degenerate = res.model.rank < X.shape[1]
     return RegressionResult(
         target=target, horizon=h, subset=subset, n_obs=int(res.nobs),
         alpha=float(alpha), b1=float(b1), b2=float(b2),
         se_b1=float(se_b1), se_b2=float(se_b2),
         p_b1=float(p_b1), p_b2=float(p_b2),
-        r_squared=float(res.rsquared), fit=res,
+        r_squared=float(res.rsquared), fit=res, degenerate=degenerate,
     )
 
 
 # =================================================== 4. Passing the gate ===
 
-GateVerdict = str   # "pass" | "partial" | "fail" | "inconclusive"
+GateVerdict = str   # "pass" | "partial" | "fail" | "inconclusive" | "degenerate"
 
 
 def classify_gate(results_by_horizon: dict[int, RegressionResult]) -> GateVerdict:
@@ -260,9 +279,17 @@ def classify_gate(results_by_horizon: dict[int, RegressionResult]) -> GateVerdic
     Inconclusive: neither label is significant on a horizon; the design
         doc's three-way taxonomy doesn't cover this case explicitly, so it
         is surfaced rather than forced into pass/partial/fail.
+    Degenerate: l_obs and l_filt were collinear (most often identical) over
+        the fitted rows on at least one horizon -- b1/b2 aren't separately
+        identified there, so NONE of the above verdicts can honestly be
+        read off that horizon's numbers. Checked first, before any
+        significance-based branch, since a degenerate fit's p-values are
+        not meaningful inputs to a pass/fail/partial/inconclusive call.
     """
     patterns = {h: r.pattern() for h, r in results_by_horizon.items()}
 
+    if any(p == "degenerate" for p in patterns.values()):
+        return "degenerate"
     if all(p == "b2_only" for p in patterns.values()):
         return "pass"
     if any(p == "b1_only" for p in patterns.values()):
@@ -552,12 +579,13 @@ def _nonoverlapping_regression(y: np.ndarray, l_obs: np.ndarray, l_filt: np.ndar
     X = sm.add_constant(np.column_stack([l_obs[idx], l_filt[idx]]), has_constant="add")
     res = sm.OLS(y_sub, X, missing="drop").fit()
     alpha, b1, b2 = res.params
+    degenerate = res.model.rank < X.shape[1]   # see encompassing_regression's note
     return RegressionResult(
         target=target, horizon=h, subset="nonoverlap", n_obs=int(res.nobs),
         alpha=float(alpha), b1=float(b1), b2=float(b2),
         se_b1=float(res.bse[1]), se_b2=float(res.bse[2]),
         p_b1=float(res.pvalues[1]), p_b2=float(res.pvalues[2]),
-        r_squared=float(res.rsquared), fit=res,
+        r_squared=float(res.rsquared), fit=res, degenerate=degenerate,
     )
 
 
@@ -569,8 +597,11 @@ class HorizonRow:
     reversion_frac: float
     hac_maxlags: int
     hac: RegressionResult
-    hac_degenerate: bool
     nonoverlap: RegressionResult | None = None
+
+    @property
+    def hac_degenerate(self) -> bool:
+        return self.hac.degenerate
 
     def __str__(self) -> str:
         line = (f"h={self.h:4d}  n={self.n_obs:5d}  T/h={self.t_over_h:6.1f}  "
@@ -578,16 +609,23 @@ class HorizonRow:
                f"HAC[lags={self.hac_maxlags}]: "
                f"b1={self.hac.b1:+.5f}(p={self.hac.p_b1:.4f})  "
                f"b2={self.hac.b2:+.5f}(p={self.hac.p_b2:.4f})"
-               + ("  [HAC DEGENERATE -- SEs not usable]" if self.hac_degenerate else ""))
+               + ("  [HAC DEGENERATE -- labels collinear, not usable]"
+                 if self.hac.degenerate else ""))
         if self.nonoverlap is not None:
-            line += (f"\n          non-overlap[n={self.nonoverlap.n_obs}]: "
-                     f"b1={self.nonoverlap.b1:+.5f}(p={self.nonoverlap.p_b1:.4f})  "
-                     f"b2={self.nonoverlap.b2:+.5f}(p={self.nonoverlap.p_b2:.4f})")
-            hac_sign = (np.sign(self.hac.b2), self.hac.b2_significant)
-            non_sign = (np.sign(self.nonoverlap.b2),
-                       self.nonoverlap.p_b2 < 0.05)
-            if hac_sign != non_sign:
-                line += "  [HAC vs non-overlap DIVERGE on b2 -- trust non-overlap]"
+            if self.nonoverlap.degenerate:
+                line += (f"\n          non-overlap[n={self.nonoverlap.n_obs}]: "
+                        f"DEGENERATE -- l_obs and l_filt are collinear (most often "
+                        f"exactly identical) over these {self.nonoverlap.n_obs} rows, "
+                        f"so b1/b2 are not separately identified here at all")
+            else:
+                line += (f"\n          non-overlap[n={self.nonoverlap.n_obs}]: "
+                        f"b1={self.nonoverlap.b1:+.5f}(p={self.nonoverlap.p_b1:.4f})  "
+                        f"b2={self.nonoverlap.b2:+.5f}(p={self.nonoverlap.p_b2:.4f})")
+                if not self.hac.degenerate:
+                    hac_sign = (np.sign(self.hac.b2), self.hac.b2_significant)
+                    non_sign = (np.sign(self.nonoverlap.b2), self.nonoverlap.p_b2 < 0.05)
+                    if hac_sign != non_sign:
+                        line += "  [HAC vs non-overlap DIVERGE on b2 -- trust non-overlap]"
         return line
 
 
@@ -610,8 +648,6 @@ def run_horizon_robustness(p: TwoFactorParams, x_filt: np.ndarray, log_f: np.nda
         r_hac = encompassing_regression(y, l_obs, l_filt, h,
                                         target="cross_maturity_spread_change",
                                         subset="full", maxlags=maxlags)
-        degenerate = not (np.isfinite(r_hac.se_b1) and np.isfinite(r_hac.se_b2)
-                         and r_hac.se_b1 > 0 and r_hac.se_b2 > 0)
 
         valid = np.isfinite(y) & np.isfinite(l_obs) & np.isfinite(l_filt)
         t_over_h = float(np.sum(valid)) / h
@@ -624,7 +660,7 @@ def run_horizon_robustness(p: TwoFactorParams, x_filt: np.ndarray, log_f: np.nda
         rows.append(HorizonRow(
             h=h, n_obs=r_hac.n_obs, t_over_h=t_over_h,
             reversion_frac=reversion_fraction(p.kappa, h),
-            hac_maxlags=maxlags, hac=r_hac, hac_degenerate=degenerate,
+            hac_maxlags=maxlags, hac=r_hac,
             nonoverlap=r_nonoverlap,
         ))
     return rows

@@ -426,3 +426,53 @@ def test_run_horizon_robustness_end_to_end_smoke():
     assert rows[2].nonoverlap is not None
     # reversion_frac must strictly increase with h at a fixed kappa
     assert rows[0].reversion_frac < rows[1].reversion_frac < rows[2].reversion_frac
+
+
+def test_degenerate_flag_catches_identical_labels():
+    """The real failure this was added for: on the actual WTI run, l_obs
+    and l_filt sampled every 66th/132nd row came out EXACTLY identical
+    (they agree on the large majority of daily rows, and a coarse
+    subsample can easily land on zero of the rare disagreement days),
+    making the two-label regression rank-deficient. statsmodels still
+    returns a (minimum-norm) coefficient split with no warning raised
+    through this code path unless checked for -- confirmed here directly
+    against a constructed case where l_obs equals l_filt exactly, rather
+    than trusting that the rank check fires only in the real scenario
+    that motivated it."""
+    rng = np.random.default_rng(2)
+    n = 50
+    l_obs = rng.choice([-1.0, 1.0], n)
+    l_filt = l_obs.copy()   # identical, by construction
+    y = rng.normal(0, 1, n)
+
+    r = encompassing_regression(y, l_obs, l_filt, h=1)
+    assert r.degenerate
+    assert r.pattern() == "degenerate"
+    assert "not separately identified" in str(r)
+
+    from csr.study.recovery import _nonoverlapping_regression
+    r2 = _nonoverlapping_regression(y, l_obs, l_filt, h=1)
+    assert r2.degenerate
+
+
+def test_degenerate_flag_false_on_genuinely_distinct_labels():
+    """The flip side -- must not fire when the two regressors actually
+    differ, or every regression in the module would look suspect."""
+    rng = np.random.default_rng(3)
+    n = 200
+    l_obs = rng.choice([-1.0, 1.0], n)
+    l_filt = rng.choice([-1.0, 1.0], n)   # independent draw, not a copy
+    y = rng.normal(0, 1, n)
+
+    r = encompassing_regression(y, l_obs, l_filt, h=1)
+    assert not r.degenerate
+    assert r.pattern() != "degenerate"
+
+
+def test_classify_gate_returns_degenerate_when_any_horizon_is():
+    results = {5: _result(5, "b2_only"),
+              22: RegressionResult(target="t", horizon=22, subset="full",
+                                   n_obs=50, alpha=0.0, b1=0.1, b2=0.1,
+                                   se_b1=0.05, se_b2=0.05, p_b1=0.5, p_b2=0.5,
+                                   r_squared=0.1, degenerate=True)}
+    assert classify_gate(results) == "degenerate"
