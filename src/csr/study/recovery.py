@@ -206,20 +206,28 @@ class RegressionResult:
 
 def encompassing_regression(y: np.ndarray, l_obs: np.ndarray, l_filt: np.ndarray,
                             h: int, target: str = "", subset: str = "full",
-                            extra_mask: np.ndarray | None = None) -> RegressionResult:
-    """OLS of y on [1, L_obs, L_filt] with HAC (Newey-West) standard errors,
-    maxlags = h - 1 (the minimum implied by h-day overlap). Rows with any
-    NaN among y/l_obs/l_filt, or excluded by `extra_mask` (e.g. April 2020,
-    or outside a volatility tercile), are dropped listwise -- statsmodels'
-    missing='drop' handles this uniformly rather than needing separate
-    masking logic per caller.
+                            extra_mask: np.ndarray | None = None,
+                            maxlags: int | None = None) -> RegressionResult:
+    """OLS of y on [1, L_obs, L_filt] with HAC (Newey-West) standard errors.
+
+    ``maxlags`` defaults to h - 1 (the minimum implied by h-day overlap) --
+    every existing call site relies on this default and is unchanged by
+    its addition. An explicit ``maxlags`` (e.g. floor(1.5*h), Sec. 7's
+    horizon-robustness table) overrides it for callers that want a more
+    conservative lag count than the bare minimum.
+
+    Rows with any NaN among y/l_obs/l_filt, or excluded by `extra_mask`
+    (e.g. April 2020, or outside a volatility tercile), are dropped
+    listwise -- statsmodels' missing='drop' handles this uniformly rather
+    than needing separate masking logic per caller.
     """
     y = np.asarray(y, float).copy()
     if extra_mask is not None:
         y = np.where(extra_mask, y, np.nan)
     X = sm.add_constant(np.column_stack([l_obs, l_filt]), has_constant="add")
     model = sm.OLS(y, X, missing="drop")
-    maxlags = max(h - 1, 0)
+    if maxlags is None:
+        maxlags = max(h - 1, 0)
     res = model.fit(cov_type="HAC", cov_kwds={"maxlags": maxlags})
     alpha, b1, b2 = res.params
     se_b1, se_b2 = res.bse[1], res.bse[2]
@@ -489,3 +497,148 @@ def print_corrected_report(result: CorrectedResult) -> None:
     print("\nLagged labels (L_{t-1} predicting y_t):")
     for h in HORIZONS:
         print(f"  {result.lagged_labels[h]}")
+
+
+# =========================== 7. Horizon robustness (the third spec flaw) ===
+#
+# h in {5, 22} were chosen by convention, never checked against the
+# fitted model's own half-life. Against kappa ~1.31 (half-life ~193
+# trading days), those horizons span only 1.8%/7.6% of chi's reversion --
+# the shared-measurement-error bias fixed in Sec. 6 is O(1) in h (a single
+# noise draw, the same size at every horizon), so the original test asked
+# the filtered label to beat a full-strength artefact using at most 7.6%
+# of the signal it exists to detect. Cross-maturity (Sec. 6) inherits the
+# same horizons and the same power problem -- which is why it came back
+# "inconclusive" rather than resolving cleanly, and why that can't be the
+# last word.
+#
+# This section reruns the decisive cross-maturity spec at horizons chosen
+# against the ACTUAL fitted half-life: 5, 22, 66, 132, 252 trading days.
+# The theory's sharp, falsifiable, monotone prediction: filtered
+# performance relative to naive should IMPROVE with horizon, since signal
+# accumulates and the shared-noise bias doesn't.
+#
+# Three things change with h, not just its value:
+#   - HAC lags scale as floor(1.5h), a more conservative choice than the
+#     bare h-1 minimum used for the original battery.
+#   - A non-overlapping check at h=66 and h=132 (every h-th row -> plain
+#     OLS, no HAC needed since there is no overlap left to autocorrelate).
+#     If HAC and non-overlapping diverge in sign or significance, the
+#     non-overlapping result is the one to trust.
+#   - Effective (independent-block) sample size T/h is reported alongside
+#     every row -- at h=252 that's ~14 blocks, and the standard errors are
+#     not to be believed at that count regardless of what they print.
+
+EXTENDED_HORIZONS = (5, 22, 66, 132, 252)
+NONOVERLAP_HORIZONS = (66, 132)
+
+
+def reversion_fraction(kappa: float, h: int) -> float:
+    """1 - exp(-kappa*h/252): fraction of chi's mean-reversion a horizon of
+    h trading days spans, at the fitted kappa. What should grow with h if
+    the filtered label's advantage is real signal accumulation rather than
+    an artefact -- the diagnostic that makes the horizon-choice power
+    problem legible to a reader instead of something to take on faith."""
+    return 1.0 - float(np.exp(-kappa * h / 252.0))
+
+
+def _nonoverlapping_regression(y: np.ndarray, l_obs: np.ndarray, l_filt: np.ndarray,
+                               h: int, target: str = "") -> RegressionResult:
+    """Every h-th row starting at 0: genuinely independent (t, t+h] windows,
+    so plain (non-HAC) OLS is valid -- there is no overlap left for HAC to
+    correct for."""
+    idx = np.arange(0, len(y), h)
+    y_sub = y[idx]
+    X = sm.add_constant(np.column_stack([l_obs[idx], l_filt[idx]]), has_constant="add")
+    res = sm.OLS(y_sub, X, missing="drop").fit()
+    alpha, b1, b2 = res.params
+    return RegressionResult(
+        target=target, horizon=h, subset="nonoverlap", n_obs=int(res.nobs),
+        alpha=float(alpha), b1=float(b1), b2=float(b2),
+        se_b1=float(res.bse[1]), se_b2=float(res.bse[2]),
+        p_b1=float(res.pvalues[1]), p_b2=float(res.pvalues[2]),
+        r_squared=float(res.rsquared), fit=res,
+    )
+
+
+@dataclass
+class HorizonRow:
+    h: int
+    n_obs: int
+    t_over_h: float
+    reversion_frac: float
+    hac_maxlags: int
+    hac: RegressionResult
+    hac_degenerate: bool
+    nonoverlap: RegressionResult | None = None
+
+    def __str__(self) -> str:
+        line = (f"h={self.h:4d}  n={self.n_obs:5d}  T/h={self.t_over_h:6.1f}  "
+               f"1-e^(-kh/252)={self.reversion_frac:.3f}  "
+               f"HAC[lags={self.hac_maxlags}]: "
+               f"b1={self.hac.b1:+.5f}(p={self.hac.p_b1:.4f})  "
+               f"b2={self.hac.b2:+.5f}(p={self.hac.p_b2:.4f})"
+               + ("  [HAC DEGENERATE -- SEs not usable]" if self.hac_degenerate else ""))
+        if self.nonoverlap is not None:
+            line += (f"\n          non-overlap[n={self.nonoverlap.n_obs}]: "
+                     f"b1={self.nonoverlap.b1:+.5f}(p={self.nonoverlap.p_b1:.4f})  "
+                     f"b2={self.nonoverlap.b2:+.5f}(p={self.nonoverlap.p_b2:.4f})")
+            hac_sign = (np.sign(self.hac.b2), self.hac.b2_significant)
+            non_sign = (np.sign(self.nonoverlap.b2),
+                       self.nonoverlap.p_b2 < 0.05)
+            if hac_sign != non_sign:
+                line += "  [HAC vs non-overlap DIVERGE on b2 -- trust non-overlap]"
+        return line
+
+
+def run_horizon_robustness(p: TwoFactorParams, x_filt: np.ndarray, log_f: np.ndarray,
+                           tau: np.ndarray,
+                           horizons: tuple[int, ...] = EXTENDED_HORIZONS,
+                           nonoverlap_horizons: tuple[int, ...] = NONOVERLAP_HORIZONS,
+                           ) -> list[HorizonRow]:
+    """The decisive cross-maturity spec (Sec. 6: labels from C1/C2, target
+    from C3/C4) at horizons chosen against the fitted model's own
+    half-life. Uses encompassing_regression's maxlags override (Sec. 3) --
+    the original battery's default behaviour (h-1) is untouched."""
+    l_obs = naive_label(log_f)
+    l_filt = filtered_label(p, x_filt, tau)
+
+    rows = []
+    for h in horizons:
+        y = cross_maturity_spread_change(log_f, h)
+        maxlags = int(np.floor(1.5 * h))
+        r_hac = encompassing_regression(y, l_obs, l_filt, h,
+                                        target="cross_maturity_spread_change",
+                                        subset="full", maxlags=maxlags)
+        degenerate = not (np.isfinite(r_hac.se_b1) and np.isfinite(r_hac.se_b2)
+                         and r_hac.se_b1 > 0 and r_hac.se_b2 > 0)
+
+        valid = np.isfinite(y) & np.isfinite(l_obs) & np.isfinite(l_filt)
+        t_over_h = float(np.sum(valid)) / h
+
+        r_nonoverlap = None
+        if h in nonoverlap_horizons:
+            r_nonoverlap = _nonoverlapping_regression(
+                y, l_obs, l_filt, h, target="cross_maturity_spread_change")
+
+        rows.append(HorizonRow(
+            h=h, n_obs=r_hac.n_obs, t_over_h=t_over_h,
+            reversion_frac=reversion_fraction(p.kappa, h),
+            hac_maxlags=maxlags, hac=r_hac, hac_degenerate=degenerate,
+            nonoverlap=r_nonoverlap,
+        ))
+    return rows
+
+
+def print_horizon_table(rows: list[HorizonRow]) -> None:
+    print(f"\n{'=' * 78}\nHORIZON ROBUSTNESS -- cross-maturity spec, "
+         f"h in {[r.h for r in rows]}\n{'=' * 78}")
+    for r in rows:
+        print(r)
+    b2s = [r.hac.b2 for r in rows]
+    increasing = all(b2s[i] <= b2s[i + 1] for i in range(len(b2s) - 1))
+    decreasing = all(b2s[i] >= b2s[i + 1] for i in range(len(b2s) - 1))
+    print(f"\nb2 monotone across horizons: "
+         f"{'increasing' if increasing else 'decreasing' if decreasing else 'no'}")
+    print("(HAC standard errors at h=252 rest on ~14 independent blocks -- "
+         "report the number, do not lean on the p-value it implies.)")

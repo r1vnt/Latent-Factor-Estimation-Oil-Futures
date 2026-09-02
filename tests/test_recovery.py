@@ -27,7 +27,8 @@ from csr.study.recovery import (RegressionResult, classify_gate,       # noqa: E
                                 encompassing_regression, filtered_label,
                                 forward_spread_level, front_return,
                                 lag_labels, naive_label, realised_vol,
-                                run_corrected_battery, run_study_a,
+                                reversion_fraction, run_corrected_battery,
+                                run_horizon_robustness, run_study_a,
                                 spread_change)
 
 DT = 1.0 / 252.0
@@ -364,3 +365,64 @@ def test_shared_noise_artefact_vanishes_under_cross_maturity_with_a_perfect_labe
     assert r_orig.b1_significant
     # Under cross-maturity that mechanical bias must not survive.
     assert abs(r_cross.b1) < abs(r_orig.b1) * 0.5
+
+
+# ------------------------------------------------- horizon robustness ---
+def test_reversion_fraction_hand_computed():
+    kappa = 1.3144
+    assert reversion_fraction(kappa, 0) == pytest.approx(0.0)
+    assert reversion_fraction(kappa, 252) == pytest.approx(1 - np.exp(-kappa))
+    # A short horizon spans a small fraction; increases monotonically in h.
+    assert reversion_fraction(kappa, 5) < reversion_fraction(kappa, 22)
+    assert reversion_fraction(kappa, 22) < reversion_fraction(kappa, 252)
+
+
+def test_encompassing_regression_maxlags_override_changes_lags_used():
+    """The Sec. 7 override (floor(1.5h) instead of h-1) must actually take
+    effect, and the default (no override) must be untouched -- every
+    existing call site in Sec. 3-6 relies on that default."""
+    rng = np.random.default_rng(4)
+    n = 500
+    l_obs = rng.choice([-1.0, 1.0], n)
+    l_filt = rng.choice([-1.0, 1.0], n)
+    y = rng.normal(0, 1, n)
+
+    r_default = encompassing_regression(y, l_obs, l_filt, h=22)
+    assert r_default.fit.cov_kwds["maxlags"] == 21   # unchanged: h - 1
+
+    r_override = encompassing_regression(y, l_obs, l_filt, h=22, maxlags=33)
+    assert r_override.fit.cov_kwds["maxlags"] == 33   # floor(1.5*22)
+
+
+def test_nonoverlapping_regression_uses_every_hth_row_and_plain_ols():
+    rng = np.random.default_rng(9)
+    n = 300
+    l_obs = rng.choice([-1.0, 1.0], n)
+    l_filt = rng.choice([-1.0, 1.0], n)
+    y = 0.2 * l_filt + rng.normal(0, 0.1, n)
+    h = 10
+
+    from csr.study.recovery import _nonoverlapping_regression
+    r = _nonoverlapping_regression(y, l_obs, l_filt, h)
+    assert r.n_obs == len(np.arange(0, n, h))
+    assert r.fit.cov_type == "nonrobust"   # plain OLS, no HAC
+    assert r.subset == "nonoverlap"
+
+
+def test_run_horizon_robustness_end_to_end_smoke():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=2000, m=4, seed=21)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+
+    rows = run_horizon_robustness(SS_OIL, x_filt, log_f, tau,
+                                  horizons=(5, 22, 66), nonoverlap_horizons=(66,))
+
+    assert [r.h for r in rows] == [5, 22, 66]
+    for r in rows:
+        assert r.hac_maxlags == int(np.floor(1.5 * r.h))
+        assert r.t_over_h == pytest.approx(r.n_obs / r.h, rel=1e-2)
+        assert 0.0 <= r.reversion_frac <= 1.0
+    assert rows[0].nonoverlap is None
+    assert rows[1].nonoverlap is None
+    assert rows[2].nonoverlap is not None
+    # reversion_frac must strictly increase with h at a fixed kappa
+    assert rows[0].reversion_frac < rows[1].reversion_frac < rows[2].reversion_frac
