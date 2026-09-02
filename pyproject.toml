@@ -14,6 +14,7 @@ fast = ["numba>=0.58"]
 data = ["requests>=2.31", "pyarrow>=14", "google-cloud-bigquery>=3.20", "db-dtypes>=1.2"]
 nlp  = ["transformers>=4.35", "torch>=2.0", "trafilatura>=1.8", "datasketch>=1.6", "langdetect>=1.0.9"]
 dev  = ["pytest>=7.4", "jupytext>=1.16"]
+study = ["statsmodels>=0.14"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
