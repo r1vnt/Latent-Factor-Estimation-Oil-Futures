@@ -247,3 +247,26 @@ def test_confounding_correlation_near_zero_for_independent_series():
     x_filt[:, 2] = rng.normal(0, 1, n)
     corr = confounding_correlation(x_filt)
     assert abs(corr) < 0.15
+
+
+def test_per_contract_loglik_s0p_sums_to_total_ll(panel):
+    from csr.pricing.pricing_error import per_contract_loglik_s0p
+    log_f, tau, _ = panel
+    per_contract = per_contract_loglik_s0p(SS_OIL, phi=0.9, sigma_p=0.01,
+                                           log_f=log_f, tau=tau, dt=DT)
+    ll_ref, *_ = _s0p_filter(SS_OIL, log_f, tau, phi=0.9, sigma_p=0.01)
+    assert per_contract.shape == (log_f.shape[1],)
+    assert float(per_contract.sum()) == pytest.approx(ll_ref, abs=1e-6)
+
+
+def test_per_contract_loglik_s0p_sigma_p_zero_matches_s0_per_contract(panel):
+    """The nesting property, once more, at the per-contract-decomposition
+    level: sigma_p=0 must reproduce plain S0's per-contract breakdown
+    exactly, not just the scalar total."""
+    from csr.pricing.fit import per_contract_loglik
+    from csr.pricing.pricing_error import per_contract_loglik_s0p
+    log_f, tau, _ = panel
+    ref = per_contract_loglik(SS_OIL, log_f, tau, DT)
+    s0p_zero = per_contract_loglik_s0p(SS_OIL, phi=0.8, sigma_p=0.0,
+                                       log_f=log_f, tau=tau, dt=DT)
+    np.testing.assert_allclose(s0p_zero, ref, atol=1e-6)

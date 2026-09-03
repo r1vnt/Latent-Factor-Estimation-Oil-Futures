@@ -35,7 +35,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from ..state.augment import augment_prior, augment_system
-from ..state.fast import filter_uv
+from ..state.fast import filter_uv, filter_uv_contributions
 from .specs import REGISTRY, run_spec
 from .twofactor import TwoFactorParams, base_system, initial_state, scale_variances
 
@@ -185,6 +185,27 @@ def fit_s0_student_t(log_f: np.ndarray, tau: np.ndarray, dt: float, m: int,
 
     ll, x_filt, resid_raw, n_obs = weighted_filter(p, log_f, tau, dt, np.ones_like(log_f))
     return p, x_filt, resid_raw, weight, it + 1
+
+
+def per_contract_loglik(p: TwoFactorParams, log_f: np.ndarray, tau: np.ndarray,
+                        dt: float) -> np.ndarray:
+    """Exact per-contract log-likelihood contribution under plain S0 --
+    sum(ll_cell[:, i]) for each contract i, via filter_uv_contributions.
+    Used to decompose an LR statistic against a richer spec (e.g. S0P) by
+    contract, to check whether a likelihood gain is spread the way a
+    genuine structural fix would produce it, or concentrated in one
+    contract (e.g. one hitting the measurement-error floor)."""
+    aug, x0a, P0a = _raw_system(p, log_f, tau, dt)
+    n = aug["n"]
+    Bu = np.zeros((n, 4))
+    ll, xf, Pf, xp, Pp, resid, ll_cell, n_obs = filter_uv_contributions(
+        np.ascontiguousarray(log_f), np.ascontiguousarray(aug["Z"]),
+        np.ascontiguousarray(aug["d"]), np.ascontiguousarray(aug["T"]),
+        np.ascontiguousarray(aug["c"]), np.ascontiguousarray(aug["Q"]),
+        np.ascontiguousarray(aug["Hdiag"]), np.ascontiguousarray(Bu),
+        np.ascontiguousarray(x0a), np.ascontiguousarray(P0a),
+    )
+    return np.nansum(ll_cell, axis=0)
 
 
 def filtered_covariance(p: TwoFactorParams, log_f: np.ndarray, tau: np.ndarray,

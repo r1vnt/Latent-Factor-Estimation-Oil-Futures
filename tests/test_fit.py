@@ -148,3 +148,32 @@ def test_filtered_covariance_matches_weighted_filter_and_run_spec(panel):
     assert Pf.shape == Pf_ref.shape
     assert np.allclose(Pf, Pf_ref)
     assert np.all(Pf[:, 0, 0] > 0)   # chi variance must be positive throughout
+
+
+def test_per_contract_loglik_sums_to_total_ll(panel):
+    """Sum over contracts must equal the scalar ll from a plain filter
+    pass at the same parameters -- the property the LR-by-contract
+    decomposition depends on."""
+    from csr.pricing.fit import per_contract_loglik
+    log_f, tau, _ = panel
+    ll_ref, *_ = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+    per_contract = per_contract_loglik(SS_OIL, log_f, tau, DT)
+    assert per_contract.shape == (log_f.shape[1],)
+    assert float(per_contract.sum()) == pytest.approx(ll_ref, abs=1e-6)
+
+
+def test_per_contract_loglik_isolates_a_single_shocked_contract(panel):
+    """A single isolated one-day shock, not a persistent whole-sample
+    bias: a persistent bias lets the state drift to partly accommodate it
+    over time (a real property of a unit-root factor, not a defect --
+    see the equivalent note on filter_uv_contributions in
+    tests/test_nesting.py), which would make this comparison noisier and
+    less direct than it needs to be for a simple isolation check."""
+    from csr.pricing.fit import per_contract_loglik
+    log_f, tau, _ = panel
+    log_f_bad = log_f.copy()
+    log_f_bad[150, 2] += 2.0   # one isolated, large one-day mispricing
+
+    clean = per_contract_loglik(SS_OIL, log_f, tau, DT)
+    bad = per_contract_loglik(SS_OIL, log_f_bad, tau, DT)
+    assert bad[2] < clean[2] - 10.0   # contract 2's own total contribution drops

@@ -46,7 +46,7 @@ import numpy as np
 from scipy.optimize import minimize
 
 from ..state.augment import add_pricing_error_prior, add_pricing_error_state
-from ..state.fast import filter_uv
+from ..state.fast import filter_uv, filter_uv_contributions
 from .fit import MIN_SIGMA_MEAS, pack, student_t_weights, unpack
 from .twofactor import TwoFactorParams, base_system, initial_state, scale_variances
 
@@ -229,6 +229,34 @@ def profile_likelihood_phi(log_f: np.ndarray, tau: np.ndarray, dt: float, m: int
         "range": float(lls.max() - lls.min()),
         "argmax_phi": float(phi_grid[int(np.argmax(lls))]),
     }
+
+
+def per_contract_loglik_s0p(p: TwoFactorParams, phi: float, sigma_p: float,
+                            log_f: np.ndarray, tau: np.ndarray, dt: float,
+                            contract_index: int = 0) -> np.ndarray:
+    """Exact per-contract log-likelihood contribution under S0P -- the
+    S0P analogue of csr.pricing.fit.per_contract_loglik, via
+    filter_uv_contributions on the 3-dim (chi, xi, p) system. Compared
+    against per_contract_loglik(p_s0, ...), 2*(this - that) decomposed by
+    contract shows exactly where an S0-to-S0P likelihood gain is coming
+    from -- the check that matters before trusting Gate 1's LR statistic
+    at face value, since an extra state with free parameters can produce
+    a large aggregate LR gain that turns out to be concentrated in a
+    single contract hitting its measurement-error floor rather than
+    reflecting the pricing-error mechanism working as intended.
+    """
+    sys_p, x0p, P0p = _s0p_system(p, phi, sigma_p, log_f, tau, dt, contract_index)
+    n = sys_p["n"]
+    k = sys_p["T"].shape[0]
+    Bu = np.zeros((n, k))
+    ll, xf, Pf, xp, Pp, resid, ll_cell, n_obs = filter_uv_contributions(
+        np.ascontiguousarray(log_f), np.ascontiguousarray(sys_p["Z"]),
+        np.ascontiguousarray(sys_p["d"]), np.ascontiguousarray(sys_p["T"]),
+        np.ascontiguousarray(sys_p["c"]), np.ascontiguousarray(sys_p["Q"]),
+        np.ascontiguousarray(sys_p["Hdiag"]), np.ascontiguousarray(Bu),
+        np.ascontiguousarray(x0p), np.ascontiguousarray(P0p),
+    )
+    return np.nansum(ll_cell, axis=0)
 
 
 def confounding_correlation(x_filt: np.ndarray) -> float:
