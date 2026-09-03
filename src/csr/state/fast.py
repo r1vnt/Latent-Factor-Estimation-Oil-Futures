@@ -156,6 +156,125 @@ def filter_uv(y, Z, d, T, c, Q, Hdiag, Bu, x0, P0):
 
 
 @njit(cache=True)
+def filter_uv_contributions(y, Z, d, T, c, Q, Hdiag, Bu, x0, P0):
+    """filter_uv, plus the exact per-observation log-likelihood
+    contribution: ll_cell[t, i] = -0.5*(log(2*pi) + log(F) + v^2/F), NaN
+    where the observation was missing. Summing ll_cell over any subset of
+    columns gives that subset's exact contribution to the total
+    log-likelihood -- used to decompose an LR statistic by contract (is a
+    fit's likelihood gain concentrated in one contract hitting a
+    measurement-error floor, or spread the way a genuine pricing-error
+    state would produce it).
+
+    This is NOT reconstructable from filter_uv's own (x_pred, P_pred)
+    outputs: within one time step, sequential univariate updating means
+    contract i>0's v and F are computed against the state AFTER contracts
+    0..i-1's updates that same step, not against the raw one-step-ahead
+    prediction filter_uv returns. Recovering the exact per-cell values
+    needs the same intra-step running (xp, Pp) this function keeps, not
+    the stored end-of-step (x_pred, P_pred) arrays alone.
+
+    A separate function from filter_uv, not filter_uv modified to also
+    return this -- the original is pinned byte-for-byte by every nesting
+    assertion and every S0/S0P gate test in this project, and a change
+    made for a diagnostic has no business risking that. Confirmed to
+    reproduce filter_uv's ll, x_filt, P_filt, resid, and n_obs exactly in
+    tests/test_pricing_error.py before this is trusted for the LR
+    decomposition it exists to compute.
+    """
+    n, m = y.shape
+    k = x0.shape[0]
+
+    x_filt = np.empty((n, k))
+    P_filt = np.empty((n, k, k))
+    x_pred = np.empty((n, k))
+    P_pred = np.empty((n, k, k))
+    resid = np.full((n, m), np.nan)
+    ll_cell = np.full((n, m), np.nan)
+
+    x = x0.copy()
+    P = P0.copy()
+    xp = np.empty(k)
+    Pp = np.empty((k, k))
+    Pz = np.empty(k)
+    tmp = np.empty((k, k))
+
+    ll = 0.0
+    n_obs = 0
+
+    for t in range(n):
+        for a in range(k):
+            s = c[t, a] + Bu[t, a]
+            for b in range(k):
+                s += T[a, b] * x[b]
+            xp[a] = s
+
+        for a in range(k):
+            for b in range(k):
+                s = 0.0
+                for e in range(k):
+                    s += T[a, e] * P[e, b]
+                tmp[a, b] = s
+        for a in range(k):
+            for b in range(k):
+                s = 0.0
+                for e in range(k):
+                    s += tmp[a, e] * T[b, e]
+                Pp[a, b] = s + Q[t, a, b]
+        for a in range(k):
+            for b in range(a + 1, k):
+                v = 0.5 * (Pp[a, b] + Pp[b, a])
+                Pp[a, b] = v
+                Pp[b, a] = v
+
+        for a in range(k):
+            x_pred[t, a] = xp[a]
+            for b in range(k):
+                P_pred[t, a, b] = Pp[a, b]
+
+        for i in range(m):
+            yi = y[t, i]
+            if np.isnan(yi):
+                continue
+
+            v = yi - d[t, i]
+            for a in range(k):
+                v -= Z[t, i, a] * xp[a]
+
+            F = Hdiag[t, i]
+            for a in range(k):
+                s = 0.0
+                for b in range(k):
+                    s += Pp[a, b] * Z[t, i, b]
+                Pz[a] = s
+                F += Z[t, i, a] * s
+
+            if F <= 0.0:
+                return (-np.inf, x_filt, P_filt, x_pred, P_pred, resid, ll_cell, n_obs)
+
+            cell_ll = -0.5 * (_LOG_2PI + np.log(F) + v * v / F)
+            ll += cell_ll
+            ll_cell[t, i] = cell_ll
+            n_obs += 1
+            resid[t, i] = v / np.sqrt(F)
+
+            for a in range(k):
+                ka = Pz[a] / F
+                xp[a] += ka * v
+                for b in range(k):
+                    Pp[a, b] -= ka * Pz[b]
+
+        for a in range(k):
+            x[a] = xp[a]
+            x_filt[t, a] = xp[a]
+            for b in range(k):
+                P[a, b] = Pp[a, b]
+                P_filt[t, a, b] = Pp[a, b]
+
+    return ll, x_filt, P_filt, x_pred, P_pred, resid, ll_cell, n_obs
+
+
+@njit(cache=True)
 def smooth_rts(x_filt, P_filt, x_pred, P_pred, T):
     """RTS backward pass for general state dimension.
 

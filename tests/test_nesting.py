@@ -266,3 +266,97 @@ def test_news_lag_never_uses_future_information(panel, news):
     # row t carries news published at t+1, describing the shock of period t
     assert y_news[99, 0] == 1.0
     assert y_news[100, 0] == 0.0
+
+
+# ------------------------------------------ filter_uv_contributions -------
+def test_filter_uv_contributions_matches_filter_uv_exactly(panel):
+    """filter_uv_contributions must reproduce filter_uv's ll, x_filt,
+    P_filt, resid, and n_obs exactly -- it exists specifically to add a
+    per-cell log-likelihood breakdown without risking any change to
+    filter_uv itself, so it has to be a genuine parallel implementation,
+    not a divergent one. Also checks that summing ll_cell over ALL cells
+    reproduces the scalar ll exactly, which is the property the LR-by-
+    contract decomposition (explore/13_...) depends on."""
+    from csr.pricing.twofactor import base_system, scale_variances
+    from csr.state.fast import filter_uv, filter_uv_contributions
+
+    log_f, tau, _ = panel
+    sysm = scale_variances(base_system(SS_OIL, tau, DT), SS_OIL)
+    x0, P0 = initial_state(log_f, tau, SS_OIL)
+    n, m = log_f.shape
+    Bu = np.zeros((n, 2))
+    Q = sysm["Q"]
+    if Q.ndim == 2:
+        Q = np.repeat(Q[None], n, 0)
+
+    ll_ref, xf_ref, Pf_ref, xp_ref, Pp_ref, resid_ref, n_ref = filter_uv(
+        np.ascontiguousarray(log_f), np.ascontiguousarray(sysm["Z"]),
+        np.ascontiguousarray(sysm["d"]), np.ascontiguousarray(sysm["T"]),
+        np.ascontiguousarray(np.broadcast_to(sysm["c"], (n, 2))),
+        np.ascontiguousarray(Q), np.ascontiguousarray(sysm["Hdiag"]),
+        np.ascontiguousarray(Bu), np.ascontiguousarray(x0), np.ascontiguousarray(P0),
+    )
+    ll_c, xf_c, Pf_c, xp_c, Pp_c, resid_c, ll_cell, n_c = filter_uv_contributions(
+        np.ascontiguousarray(log_f), np.ascontiguousarray(sysm["Z"]),
+        np.ascontiguousarray(sysm["d"]), np.ascontiguousarray(sysm["T"]),
+        np.ascontiguousarray(np.broadcast_to(sysm["c"], (n, 2))),
+        np.ascontiguousarray(Q), np.ascontiguousarray(sysm["Hdiag"]),
+        np.ascontiguousarray(Bu), np.ascontiguousarray(x0), np.ascontiguousarray(P0),
+    )
+
+    assert abs(ll_c - ll_ref) < 1e-9
+    assert n_c == n_ref
+    assert np.allclose(xf_c, xf_ref, atol=1e-9)
+    assert np.allclose(Pf_c, Pf_ref, atol=1e-9)
+    np.testing.assert_allclose(resid_c, resid_ref, atol=1e-9, equal_nan=True)
+
+    finite = np.isfinite(ll_cell)
+    assert finite.sum() == n_ref
+    assert float(np.sum(ll_cell[finite])) == pytest.approx(ll_ref, abs=1e-6)
+
+
+def test_filter_uv_contributions_flags_a_single_bad_observation():
+    """A single, isolated one-day shock on one contract must produce a
+    much worse (more negative) ll_cell for exactly that (t, i) cell than
+    the same contract's typical cell -- confirms ll_cell's sign/magnitude
+    behave the way a likelihood contribution should. (A PERSISTENT bias
+    across the whole sample, tried first, does not isolate this cleanly:
+    the filter's own state can drift to partly accommodate a bias that
+    holds for the whole sample, which is a real property of a unit-root
+    factor and no mean reversion pulling it back -- not a bug in ll_cell,
+    just not a clean test of it. An isolated single-day shock avoids that
+    confound entirely.)"""
+    from csr.pricing.twofactor import base_system, scale_variances
+    from csr.state.fast import filter_uv_contributions
+
+    log_f, tau, _ = simulate_panel(SS_OIL, n=300, m=4, seed=8)
+    log_f = log_f.copy()
+    shock_t = 150
+    log_f[shock_t, 0] += 3.0   # one isolated, large one-day mispricing
+
+    sysm = scale_variances(base_system(SS_OIL, tau, DT), SS_OIL)
+    x0, P0 = initial_state(log_f, tau, SS_OIL)
+    n, m = log_f.shape
+    Bu = np.zeros((n, 2))
+    Q = sysm["Q"]
+    if Q.ndim == 2:
+        Q = np.repeat(Q[None], n, 0)
+
+    *_, ll_cell, n_obs = filter_uv_contributions(
+        np.ascontiguousarray(log_f), np.ascontiguousarray(sysm["Z"]),
+        np.ascontiguousarray(sysm["d"]), np.ascontiguousarray(sysm["T"]),
+        np.ascontiguousarray(np.broadcast_to(sysm["c"], (n, 2))),
+        np.ascontiguousarray(Q), np.ascontiguousarray(sysm["Hdiag"]),
+        np.ascontiguousarray(Bu), np.ascontiguousarray(x0), np.ascontiguousarray(P0),
+    )
+    shocked_cell = ll_cell[shock_t, 0]
+    typical_col0 = np.nanmedian(np.delete(ll_cell[:, 0], shock_t))
+    assert shocked_cell < typical_col0 - 10.0   # dramatically worse, not just noisier
+    # NOTE: same-day OTHER contracts are NOT expected to look ordinary --
+    # sequential univariate updating processes contract 0 first, so a huge
+    # contract-0 shock distorts the intra-day state that contracts 1-3 get
+    # compared against that same day. Tried asserting the other contracts
+    # stay "normal" here first; they don't, and that's correct filter
+    # behaviour (real cross-contract contamination within a day from
+    # processing order), not a defect -- exactly the mechanism that makes
+    # this function necessary in the first place (Sec. docstring).
