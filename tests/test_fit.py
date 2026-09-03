@@ -15,7 +15,8 @@ import pytest
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from csr.pricing.fit import (MIN_SIGMA_MEAS, fit_s0_gaussian, fit_s0_student_t,  # noqa: E402
-                             pack, student_t_weights, unpack, weighted_filter)
+                             filtered_covariance, pack, student_t_weights,
+                             unpack, weighted_filter)
 from csr.pricing.specs import REGISTRY, run_spec                                 # noqa: E402
 from csr.simulate import SS_OIL, simulate_panel                                   # noqa: E402
 
@@ -129,3 +130,21 @@ def test_student_t_fit_downweights_a_real_outlier():
         log_f, tau, DT, 4, df=5.0, theta0=pack(p_gauss))
 
     assert weight_t[150, 0] < 0.3 * np.nanmedian(weight_t)
+
+
+def test_filtered_covariance_matches_weighted_filter_and_run_spec(panel):
+    """filtered_covariance() must return the exact same P_filt a plain
+    weighted_filter(weight=1) pass computes internally (confirming it
+    isn't a second, independently-computed -- and possibly divergent --
+    version), and by the transitivity already established in
+    test_weighted_filter_at_weight_one_matches_run_spec, that also pins
+    it against run_spec's own P_filt."""
+    log_f, tau, _ = panel
+    Pf = filtered_covariance(SS_OIL, log_f, tau, DT)
+
+    from csr.pricing.specs import REGISTRY, run_spec
+    _, _, Pf_ref, _, _ = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+
+    assert Pf.shape == Pf_ref.shape
+    assert np.allclose(Pf, Pf_ref)
+    assert np.all(Pf[:, 0, 0] > 0)   # chi variance must be positive throughout

@@ -185,3 +185,27 @@ def fit_s0_student_t(log_f: np.ndarray, tau: np.ndarray, dt: float, m: int,
 
     ll, x_filt, resid_raw, n_obs = weighted_filter(p, log_f, tau, dt, np.ones_like(log_f))
     return p, x_filt, resid_raw, weight, it + 1
+
+
+def filtered_covariance(p: TwoFactorParams, log_f: np.ndarray, tau: np.ndarray,
+                        dt: float) -> np.ndarray:
+    """P_filt from a plain (weight=1) filter pass at the given parameters.
+
+    weighted_filter() computes this internally but doesn't return it --
+    every existing caller only needed the point estimate and residuals.
+    For a caller that wants posterior uncertainty too (e.g. Study A's
+    confidence-split test, csr.study.recovery.confidence_split_regression),
+    a separate function keeps weighted_filter's return signature untouched
+    rather than changing its arity for every existing call site.
+    """
+    aug, x0a, P0a = _raw_system(p, log_f, tau, dt)
+    n = aug["n"]
+    Bu = np.zeros((n, 4))
+    ll, xf, Pf, xp, Pp, resid, n_obs = filter_uv(
+        np.ascontiguousarray(log_f), np.ascontiguousarray(aug["Z"]),
+        np.ascontiguousarray(aug["d"]), np.ascontiguousarray(aug["T"]),
+        np.ascontiguousarray(aug["c"]), np.ascontiguousarray(aug["Q"]),
+        np.ascontiguousarray(aug["Hdiag"]), np.ascontiguousarray(Bu),
+        np.ascontiguousarray(x0a), np.ascontiguousarray(P0a),
+    )
+    return Pf
