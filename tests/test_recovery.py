@@ -22,15 +22,17 @@ from csr.pricing.specs import REGISTRY, run_spec                    # noqa: E402
 from csr.pricing.twofactor import TwoFactorParams                    # noqa: E402
 from csr.simulate import SS_OIL, simulate_panel                       # noqa: E402
 from csr.study.recovery import (RegressionResult, circular_block_bootstrap_monotonicity,  # noqa: E402
-                                classify_gate, continuous_filtered,
-                                continuous_naive, cross_maturity_spread_change,
+                                circular_block_bootstrap_restricted_null,
+                                classify_gate, confidence_split_regression,
+                                continuous_filtered, continuous_naive,
+                                cross_maturity_spread_change,
                                 disagreement_by_year, disagreement_clustering,
-                                encompassing_regression, filtered_label,
-                                forward_spread_level, front_return,
+                                disagreement_event_study, encompassing_regression,
+                                filtered_label, forward_spread_level, front_return,
                                 label_agreement, lag_labels, naive_label,
                                 realised_vol, reversion_fraction,
                                 run_corrected_battery, run_horizon_robustness,
-                                run_study_a, spread_change)
+                                run_study_a, spread_change, xi_monopoly_test)
 
 DT = 1.0 / 252.0
 
@@ -590,3 +592,129 @@ def test_circular_block_bootstrap_monotonicity_smoke():
     assert out["n_used"] + out["n_skipped"] == 20
     if out["n_used"] > 0:
         assert 0.0 <= out["fraction_monotone"] <= 1.0
+
+
+# ------------------------------------- disagreement event study / McNemar
+def test_disagreement_event_study_hand_computed():
+    # 4 contracts so cross_maturity_spread_change (default far=(2,3)) has
+    # something to compute; only contracts 2,3 (index 2,3) matter for y.
+    n = 10
+    log_f = np.zeros((n, 4))
+    # C3 - C4 spread rises steadily -> y_t^(1) = s_far_{t+1} - s_far_t > 0 always
+    s_far = np.linspace(0.0, 0.9, n)
+    log_f[:, 2] = s_far
+    log_f[:, 3] = 0.0
+    l_obs = np.ones(n)     # always predicts backwardation/positive
+    l_filt = np.ones(n)
+    l_filt[3] = -1.0       # one disagreement day
+    l_filt[7] = -1.0       # a second disagreement day
+
+    out = disagreement_event_study(l_obs, l_filt, log_f, h=1)
+    assert out["n_disagree"] == 2
+    # y is always positive here, so l_obs (=+1) is always "correct" by
+    # sign, and l_filt is only correct where it also reads +1.
+    assert out["n_only_obs_correct"] == 2   # both disagreement days: obs right, filt wrong
+    assert out["n_only_filt_correct"] == 0
+    assert out["obs_win_rate"] == pytest.approx(1.0)
+    assert out["filt_win_rate"] == pytest.approx(0.0)
+
+
+def test_disagreement_event_study_real_data_smoke():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1500, m=4, seed=17)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+    l_obs = naive_label(log_f)
+    l_filt = filtered_label(SS_OIL, x_filt, tau)
+
+    out = disagreement_event_study(l_obs, l_filt, log_f, h=22)
+    assert out["n_disagree"] > 0
+    assert 0.0 <= out["obs_win_rate"] <= 1.0
+    assert 0.0 <= out["filt_win_rate"] <= 1.0
+    total = (out["n_only_obs_correct"] + out["n_only_filt_correct"]
+            + out["n_both_correct"] + out["n_both_wrong"])
+    assert total == out["n_disagree"]
+    assert 0.0 <= out["mcnemar_p"] <= 1.0
+
+
+# ------------------------------------------------------ confidence split ---
+def test_confidence_split_regression_splits_at_median_and_covers_all_valid_rows():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1500, m=4, seed=17)
+    ll, x_filt, P_filt, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+
+    r_low_conf, r_high_conf = confidence_split_regression(
+        SS_OIL, x_filt, P_filt, log_f, tau, h=22)
+
+    assert r_low_conf.subset == "high_uncertainty"
+    assert r_high_conf.subset == "high_confidence"
+    # roughly even split (median-based), not wildly lopsided
+    total = r_low_conf.n_obs + r_high_conf.n_obs
+    assert 0.35 * total < r_low_conf.n_obs < 0.65 * total
+
+
+# --------------------------------------------------------- xi monopoly test
+def test_xi_monopoly_test_structure_and_finiteness():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1500, m=4, seed=17)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+
+    r = xi_monopoly_test(x_filt, log_f, h=252)
+    assert r.target == "xi_monopoly_front_return"
+    assert np.isnan(r.b1) and np.isnan(r.p_b1)   # no naive comparator -- single regressor
+    assert np.isfinite(r.b2) and np.isfinite(r.p_b2)
+    assert r.fit.cov_kwds["maxlags"] == 251
+
+
+def test_xi_monopoly_test_recovers_a_known_relationship():
+    """A constructed xi_hat with a real, known relationship to the target
+    should come back significant -- confirms the regression direction and
+    wiring, not just that it runs."""
+    rng = np.random.default_rng(5)
+    n = 1000
+    h = 5
+    xi_hat = np.cumsum(rng.normal(0, 0.01, n))
+    x_filt = np.zeros((n, 4))
+    x_filt[:, 1] = xi_hat
+
+    # Construct log_f's front contract so its h-step-ahead change equals
+    # 0.5*xi_hat_t + noise, by construction -- an unambiguous known signal.
+    noise = rng.normal(0, 0.001, n)
+    front = np.zeros(n)
+    for t in range(n - h):
+        front[t + h] = front[t] + 0.5 * xi_hat[t] + noise[t]
+    log_f = front.reshape(-1, 1)
+
+    r = xi_monopoly_test(x_filt, log_f, h)
+    assert r.p_b2 < 0.01
+    assert r.b2 == pytest.approx(0.5, abs=0.15)
+
+
+# --------------------------------------------------- restricted-null bootstrap
+def test_restricted_null_bootstrap_smoke_and_null_matches_restriction():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1200, m=4, seed=41)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+
+    out = circular_block_bootstrap_restricted_null(
+        SS_OIL, x_filt, log_f, tau, horizons=(5, 22, 66),
+        block_length=60, n_boot=20, seed=0)
+
+    assert out["n_boot"] == 20
+    assert out["n_used"] + out["n_skipped"] == 20
+    if out["n_used"] > 0:
+        assert 0.0 <= out["fraction_monotone"] <= 1.0
+
+
+def test_restricted_null_residuals_zero_mean_and_correct_length():
+    from csr.study.recovery import _restricted_null_residuals
+    rng = np.random.default_rng(2)
+    n = 200
+    l_obs = rng.choice([-1.0, 1.0], n)
+    l_filt = rng.choice([-1.0, 1.0], n)
+    y = 0.3 * (l_obs + l_filt) + rng.normal(0, 0.1, n)
+    y[:10] = np.nan
+
+    fitted, resid = _restricted_null_residuals(y, l_obs, l_filt)
+    assert len(fitted) == n and len(resid) == n
+    assert np.isnan(fitted[:10]).all() and np.isnan(resid[:10]).all()
+    valid_resid = resid[~np.isnan(resid)]
+    assert valid_resid.mean() == pytest.approx(0.0, abs=1e-8)
+    # reconstructing y from fitted + resid must recover the original
+    valid = ~np.isnan(y)
+    np.testing.assert_allclose(fitted[valid] + resid[valid], y[valid])

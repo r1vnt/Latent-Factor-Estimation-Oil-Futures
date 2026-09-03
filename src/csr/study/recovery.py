@@ -50,6 +50,7 @@ from dataclasses import dataclass, field
 import numpy as np
 import pandas as pd
 import statsmodels.api as sm
+from statsmodels.stats.contingency_tables import mcnemar
 from statsmodels.stats.outliers_influence import variance_inflation_factor
 
 from ..pricing.twofactor import A_tau, TwoFactorParams
@@ -867,6 +868,196 @@ def circular_block_bootstrap_monotonicity(
         for h in horizons:
             r = encompassing_regression(ys[h], l_obs_b, l_filt_b, h,
                                         maxlags=maxlags[h])
+            if r.degenerate or not np.isfinite(r.se_b2) or r.se_b2 == 0:
+                skip = True
+                break
+            t_abs.append(abs(r.b2 / r.se_b2))
+        if skip:
+            n_skipped += 1
+            continue
+        if all(t_abs[i] <= t_abs[i + 1] for i in range(len(t_abs) - 1)):
+            n_monotone += 1
+
+    n_used = n_boot - n_skipped
+    return {
+        "n_boot": n_boot, "n_skipped": n_skipped, "n_used": n_used,
+        "n_monotone": n_monotone,
+        "fraction_monotone": n_monotone / n_used if n_used else float("nan"),
+    }
+
+
+# ==== 9. Testing the filter as more than a classifier (disagreement days,
+#         confidence, and the permanent/transitory monopoly claim) ========
+#
+# sign(f1 - f2) throws away the two things the filter uniquely produces --
+# magnitude and calibrated uncertainty -- then asks it to beat the spread
+# at the one job the spread does natively. The full-sample encompassing
+# regression also dilutes the 225 genuinely informative (disagreement)
+# days with 3,372 that contribute nothing to discrimination, since b1 and
+# b2 are identified only from where the labels differ (Sec. 8).
+
+
+def disagreement_event_study(l_obs: np.ndarray, l_filt: np.ndarray,
+                             log_f: np.ndarray, h: int) -> dict:
+    """On days where L_obs != L_filt, which one correctly signed the
+    subsequent h-day cross-maturity spread change? A clean binary event
+    study restricted to exactly the days that carry discrimination
+    information -- McNemar's test on the paired correct/incorrect outcomes,
+    not diluted by the ~94% of days where the labels agree and neither
+    side can be credited or blamed differently from the other.
+    """
+    y = cross_maturity_spread_change(log_f, h)
+    valid = np.isfinite(l_obs) & np.isfinite(l_filt) & np.isfinite(y)
+    disagree = (l_obs != l_filt) & valid
+    y_d, lo_d, lf_d = y[disagree], l_obs[disagree], l_filt[disagree]
+
+    obs_correct = np.sign(lo_d) == np.sign(y_d)
+    filt_correct = np.sign(lf_d) == np.sign(y_d)
+
+    both_correct = int(np.sum(obs_correct & filt_correct))
+    only_obs = int(np.sum(obs_correct & ~filt_correct))
+    only_filt = int(np.sum(~obs_correct & filt_correct))
+    both_wrong = int(np.sum(~obs_correct & ~filt_correct))
+    table = np.array([[both_wrong, only_filt], [only_obs, both_correct]])
+
+    result = mcnemar(table, exact=True)
+    return {
+        "h": h, "n_disagree": int(disagree.sum()),
+        "obs_win_rate": float(obs_correct.mean()) if len(obs_correct) else float("nan"),
+        "filt_win_rate": float(filt_correct.mean()) if len(filt_correct) else float("nan"),
+        "n_only_obs_correct": only_obs, "n_only_filt_correct": only_filt,
+        "n_both_correct": both_correct, "n_both_wrong": both_wrong,
+        "mcnemar_stat": float(result.statistic), "mcnemar_p": float(result.pvalue),
+    }
+
+
+def confidence_split_regression(p: TwoFactorParams, x_filt: np.ndarray,
+                                P_filt: np.ndarray, log_f: np.ndarray,
+                                tau: np.ndarray, h: int
+                                ) -> tuple[RegressionResult, RegressionResult]:
+    """Splits the sample at the median filtered chi variance (P_filt[:,0,0])
+    and reruns the decisive cross-maturity encompassing regression on each
+    half. The naive label cannot enter this comparison at all -- it has no
+    notion of its own confidence -- which is exactly the point: if the
+    filtered label wins anywhere, the model predicts it wins on the
+    high-confidence (low P_filt) half specifically.
+
+    Returns (low_confidence_result, high_confidence_result) -- i.e. (high
+    P_filt / high uncertainty, low P_filt / high confidence), in that
+    order so the "expected to win" half is returned second.
+    """
+    l_obs = naive_label(log_f)
+    l_filt = filtered_label(p, x_filt, tau)
+    y = cross_maturity_spread_change(log_f, h)
+    p_chi = P_filt[:, 0, 0]
+
+    valid = np.isfinite(y) & np.isfinite(l_obs) & np.isfinite(l_filt) & np.isfinite(p_chi)
+    median_p = np.median(p_chi[valid])
+    high_uncertainty = valid & (p_chi >= median_p)
+    high_confidence = valid & (p_chi < median_p)
+
+    maxlags = max(h - 1, 0)
+    r_low_conf = encompassing_regression(y, l_obs, l_filt, h,
+                                         target="cross_maturity_spread_change",
+                                         subset="high_uncertainty",
+                                         extra_mask=high_uncertainty, maxlags=maxlags)
+    r_high_conf = encompassing_regression(y, l_obs, l_filt, h,
+                                          target="cross_maturity_spread_change",
+                                          subset="high_confidence",
+                                          extra_mask=high_confidence, maxlags=maxlags)
+    return r_low_conf, r_high_conf
+
+
+def xi_monopoly_test(x_filt: np.ndarray, log_f: np.ndarray, h: int) -> RegressionResult:
+    """Does xi_hat predict long-horizon front-contract LEVEL changes --
+    something the spread structurally cannot address at all, since it has
+    no permanent/transitory decomposition? A monopoly claim, not a horse
+    race: single-regressor OLS (xi_hat only, no naive comparator to
+    encompass) with HAC standard errors, maxlags = h - 1.
+    """
+    xi_hat = x_filt[:, 1]
+    y = front_return(log_f, h)
+    valid = np.isfinite(y) & np.isfinite(xi_hat)
+    X = sm.add_constant(xi_hat, has_constant="add")
+    y_masked = np.where(valid, y, np.nan)
+    res = sm.OLS(y_masked, X, missing="drop").fit(
+        cov_type="HAC", cov_kwds={"maxlags": max(h - 1, 0)})
+    alpha, b = res.params
+    degenerate = res.model.rank < X.shape[1]
+    return RegressionResult(
+        target="xi_monopoly_front_return", horizon=h, subset="full",
+        n_obs=int(res.nobs), alpha=float(alpha), b1=float("nan"), b2=float(b),
+        se_b1=float("nan"), se_b2=float(res.bse[1]),
+        p_b1=float("nan"), p_b2=float(res.pvalues[1]),
+        r_squared=float(res.rsquared), fit=res, degenerate=degenerate,
+    )
+
+
+def _restricted_null_residuals(y: np.ndarray, l_obs: np.ndarray, l_filt: np.ndarray
+                               ) -> tuple[np.ndarray, np.ndarray]:
+    """Fit y ~ 1 + (l_obs + l_filt) -- the b1=b2 RESTRICTED model -- and
+    return (fitted values, residuals), both full-length with NaN where y
+    was NaN. Point estimates and residuals from OLS don't depend on the
+    covariance estimator, so this doesn't need HAC; only used to generate
+    a bootstrap DGP under H0: b1 = b2."""
+    combined = l_obs + l_filt
+    X = sm.add_constant(combined, has_constant="add")
+    res = sm.OLS(y, X, missing="drop").fit()
+    fitted_full = np.full_like(y, np.nan)
+    resid_full = np.full_like(y, np.nan)
+    valid = np.isfinite(y) & np.isfinite(combined)
+    fitted_full[valid] = res.fittedvalues
+    resid_full[valid] = res.resid
+    return fitted_full, resid_full
+
+
+def circular_block_bootstrap_restricted_null(
+    p: TwoFactorParams, x_filt: np.ndarray, log_f: np.ndarray, tau: np.ndarray,
+    horizons: tuple[int, ...] = EXTENDED_HORIZONS,
+    block_length: int = 252, n_boot: int = 2000, seed: int = 0,
+) -> dict:
+    """The correctly-specified null for the monotonicity question. The
+    original bootstrap (Sec. 7) resampled under H0: "labels carry no
+    information" -- but the joint Wald test (Sec. 8) already rejects that
+    null hard at h >= 66, so a test against it says nothing about b2
+    specifically: once the pair carries real, growing-with-h signal, a
+    near-collinear split hands a growing share to WHICHEVER coefficient,
+    and a monotone |t| sequence can follow mechanically with no
+    discrimination behind it at all.
+
+    The null that actually matches the discrimination question -- and
+    that the diff-Wald test (Sec. 8) fails to reject at every horizon,
+    p in [0.46, 0.97] -- is H0: b1 = b2. This resamples RESIDUALS from the
+    b1=b2-restricted fit (circular block, preserving their own serial
+    dependence) and adds them back onto the restricted fitted values, with
+    the REAL labels held fixed throughout -- unlike Sec. 7's bootstrap,
+    which resampled the labels instead. Each replicate's y is then refit
+    with the unrestricted (b1, b2 free) model to see how often a monotone
+    |t(b2)| pattern emerges purely from the collinear split of a signal
+    that, by construction here, does not distinguish the two labels.
+    """
+    rng = np.random.default_rng(seed)
+    l_obs = naive_label(log_f)
+    l_filt = filtered_label(p, x_filt, tau)
+    n = len(l_obs)
+
+    ys = {h: cross_maturity_spread_change(log_f, h) for h in horizons}
+    maxlags = {h: int(np.floor(1.5 * h)) for h in horizons}
+    fitted_r = {}
+    resid_r = {}
+    for h in horizons:
+        fitted_r[h], resid_r[h] = _restricted_null_residuals(ys[h], l_obs, l_filt)
+
+    n_monotone = 0
+    n_skipped = 0
+    for _ in range(n_boot):
+        idx = _circular_block_indices(rng, n, block_length)
+
+        t_abs = []
+        skip = False
+        for h in horizons:
+            y_boot = fitted_r[h] + resid_r[h][idx]
+            r = encompassing_regression(y_boot, l_obs, l_filt, h, maxlags=maxlags[h])
             if r.degenerate or not np.isfinite(r.se_b2) or r.se_b2 == 0:
                 skip = True
                 break
