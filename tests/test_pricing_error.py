@@ -147,3 +147,103 @@ def test_pricing_error_state_generic_over_input_dimension():
     # the pricing-error block sits LAST, not interleaved with the news block
     assert sys5["T"][4, 4] == pytest.approx(0.7)
     assert np.all(sys5["T"][4, :4] == 0.0)
+
+
+# =================================================== fitting machinery ===
+from csr.pricing.fit import MIN_SIGMA_MEAS, fit_s0_gaussian, pack       # noqa: E402
+from csr.pricing.pricing_error import (confounding_correlation,          # noqa: E402
+                                       fit_s0p_student_t, multi_start_fit_s0p,
+                                       pack_s0p, profile_likelihood_phi,
+                                       unpack_s0p, weighted_filter_s0p)
+
+STUDENT_T_DF = 5.0
+
+
+def test_pack_unpack_s0p_roundtrip():
+    theta = pack_s0p(SS_OIL, phi=0.8, sigma_p=0.003)
+    p2, phi2, sigma_p2 = unpack_s0p(theta, m=len(SS_OIL.sigma_meas))
+    assert p2.kappa == pytest.approx(SS_OIL.kappa)
+    assert phi2 == pytest.approx(0.8, abs=1e-6)
+    assert sigma_p2 == pytest.approx(0.003, rel=1e-6)
+
+
+def test_weighted_filter_s0p_sigma_p_zero_matches_s0(panel):
+    """The gate, again, at the fitting-machinery level: weighted_filter_s0p
+    with weight=1, sigma_p=0 must reproduce plain S0 exactly, same
+    tolerance as the raw state-construction gate above."""
+    log_f, tau, _ = panel
+    ll_ref, xf_ref, Pf_ref, xp_ref, Pp_ref, resid_ref, n_ref = _s0_filter(SS_OIL, log_f, tau)
+    ll_p, xf_p, Pf_p, resid_p, n_p = weighted_filter_s0p(
+        SS_OIL, phi=0.8, sigma_p=0.0, log_f=log_f, tau=tau, dt=DT,
+        weight=np.ones_like(log_f))
+    assert abs(ll_p - ll_ref) < 1e-9
+    assert n_p == n_ref
+    assert np.allclose(xf_p[:, :2], xf_ref, atol=1e-9)
+
+
+def test_fit_s0p_student_t_recovers_an_injected_pricing_error():
+    """The real test: simulate clean two-factor data, inject a KNOWN AR(1)
+    error onto the front contract only, and confirm fit_s0p_student_t
+    recovers phi/sigma_p in the right neighbourhood and the fitted s_1
+    stays sane -- not just that the machinery runs."""
+    rng = np.random.default_rng(77)
+    n, m = 1500, 4
+    log_f, tau, _ = simulate_panel(SS_OIL, n=n, m=m, seed=12)
+
+    true_phi, true_sigma_p = 0.9, 0.01
+    p_series = np.zeros(n)
+    for t in range(1, n):
+        p_series[t] = true_phi * p_series[t - 1] + rng.normal(0, true_sigma_p)
+    log_f_contaminated = log_f.copy()
+    log_f_contaminated[:, 0] += p_series
+
+    p_gauss, _, _, _, _, _ = fit_s0_gaussian(log_f_contaminated, tau, DT, m,
+                                             theta0=pack(SS_OIL))
+    theta0 = pack_s0p(p_gauss, phi=0.7, sigma_p=5e-3)
+    fit = fit_s0p_student_t(log_f_contaminated, tau, DT, m, STUDENT_T_DF, theta0)
+
+    assert fit.phi == pytest.approx(true_phi, abs=0.15)
+    assert fit.sigma_p == pytest.approx(true_sigma_p, rel=0.5)
+    assert fit.x_filt.shape == (n, 3)
+    # the fitted front-contract sigma_meas should NOT need to be huge to
+    # explain the front-contract error anymore -- the AR(1) state is
+    # absorbing it instead.
+    assert fit.p.sigma_meas[0] < 0.01
+
+
+def test_multi_start_fit_s0p_smoke_and_spread_is_finite():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=600, m=4, seed=5)
+    out = multi_start_fit_s0p(
+        log_f, tau, DT, 4, STUDENT_T_DF, SS_OIL,
+        phi_grid=(0.5, 0.9), sigma_p_grid=(5e-4, 3e-3))
+    assert len(out["starts"]) == 4
+    assert np.isfinite(out["ll_spread"])
+    assert out["ll_spread"] >= 0.0
+    assert out["best"].ll == max(s["fit"].ll for s in out["starts"])
+
+
+def test_profile_likelihood_phi_shape_and_argmax_in_grid():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=600, m=4, seed=5)
+    grid = np.array([0.3, 0.6, 0.9])
+    out = profile_likelihood_phi(log_f, tau, DT, 4, SS_OIL, grid, sigma_p0=1e-3)
+    assert out["loglik"].shape == grid.shape
+    assert np.all(np.isfinite(out["loglik"]))
+    assert out["argmax_phi"] in grid.tolist()
+
+
+def test_confounding_correlation_hand_computed():
+    x_filt = np.zeros((5, 3))
+    x_filt[:, 1] = [1.0, 2.0, 3.0, 4.0, 5.0]   # xi_hat
+    x_filt[:, 2] = [5.0, 4.0, 3.0, 2.0, 1.0]   # p_hat, perfectly anti-correlated
+    corr = confounding_correlation(x_filt)
+    assert corr == pytest.approx(-1.0)
+
+
+def test_confounding_correlation_near_zero_for_independent_series():
+    rng = np.random.default_rng(0)
+    n = 2000
+    x_filt = np.zeros((n, 3))
+    x_filt[:, 1] = rng.normal(0, 1, n)
+    x_filt[:, 2] = rng.normal(0, 1, n)
+    corr = confounding_correlation(x_filt)
+    assert abs(corr) < 0.15
