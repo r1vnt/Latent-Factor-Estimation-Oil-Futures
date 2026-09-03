@@ -1,41 +1,72 @@
 """S0P: S0 extended with an AR(1) front-contract pricing-error state
-(Filter Repair Runbook, Step 1).
+(Filter Repair Runbook, Step 1) -- REFUTED, kept for the record and for
+re-use on a deep panel. Do not present S0P as the fitted model; see
+"Why this is refuted" below before using anything in this module for a
+result rather than a diagnostic.
 
-The measurement-error profile under plain S0 -- s_hat = [54.9, 6.5, 5.1,
-16.6] bp -- is not a noise-level estimate. The front contract absorbing
-eight times C3's error, on the single most liquid futures contract in the
-world, is a misspecification signature: the two-factor model cannot price
-the front of the curve, and the pricing error has nowhere else to go but
-into s_1. A general third pricing factor is not identifiable in a
-four-contract panel; one restricted to load on a single named contract
-is -- two parameters (phi, sigma_p), estimable where a general third
-factor is not.
+The original hypothesis: the measurement-error profile under plain S0 --
+s_hat = [54.9, 6.5, 5.1, 16.6] bp -- looked like a front-contract
+misspecification signature (C1 absorbing eight times C3's error on the
+single most liquid futures contract in the world), fixable with a state
+restricted to load on one named contract:
 
     p_{t+1} = phi * p_t + eps_t,    eps ~ N(0, sigma_p^2)
     ln F(t, T_1) = e^{-kappa*tau_1} chi_t + xi_t + A(tau_1) + p_t + v_1t
 
-phi = tanh(z), sigma_p = exp(w): unbounded phi would walk to 1.0, where
-the pricing error becomes a second unit root and stops being identified
-from xi at all -- the fit would look fine (a plausible-looking
-likelihood) and mean nothing.
+Why this is refuted (Runbook Step 1, checks A/B/1.9 -- explore/12, 13, 14)
+---------------------------------------------------------------------
+Two of Gate 1's four criteria were numerically met (s_1: 54.9 -> 9.88bp;
+LR vs S0: 15,912 on 2 df) and BOTH were void under their own
+decomposition, not passed:
 
-Gate 1 (stated before the fit, not after):
-    s_1 under S0P          < 15 bp,  decisive
-    Q/H ratio               < 15x,   decisive
-    LR vs S0                p < 0.01, necessary but not decisive --
-                            an extra state with two free parameters
-                            almost always improves the likelihood; what
-                            decides Gate 1 is whether s_1 actually
-                            collapses, not whether the LR test rejects
-    label agreement          < 93.74% (baseline under S0), corroborating
+1. The LR gain is a boundary artefact, not the mechanism. Decomposed by
+   contract (per_contract_loglik / per_contract_loglik_s0p), C4 supplies
+   80.2% of the total likelihood gain and C3+C4 together supply 93.3%.
+   C1 -- the contract this state was built for -- contributes 3.8%
+   (+604 of +15,912). C4 landed on MIN_SIGMA_MEAS (1.43bp): the same
+   boundary degeneracy documented for the Gaussian fits, reappearing
+   under Student-t on a different contract.
+
+2. The s_1 collapse is not caused by the pricing-error state. Plain S0
+   (NO new state of any kind) refit on C1-C3 with C4 simply dropped
+   already gets s_1 to 3.34bp -- lower than S0P achieves with or without
+   C4. Adding the pricing-error state back on top of the C1-C3 panel then
+   makes s_1 WORSE (3.34 -> 7.09bp) and pushes the exact same boundary
+   pathology onto C3 instead (1.43bp, the floor again).
+
+3. The perturbation battery (explore/14_perturbation_battery.py, Runbook
+   1.9-1.10): refit plain S0 (Student-t, no pricing-error state) on every
+   leave-one-contract-out subset of C1-C4 and on two non-overlapping time
+   periods. The inflated entry of the s vector relocates depending on
+   which contracts are in the panel -- C1 and C4 in the four-contract fit,
+   C2/C3 once C4 is dropped, C3 to the floor once the state is added back.
+   See that script's output for the full table and the kappa-spread
+   comparison it was built to produce.
+
+The actual finding: the measurement-error vector is not identified from a
+four-contract panel. With lambda_min(Z'Z) = 0.024, the orientation of the
+residual space the two factors fail to span is barely determined, so
+WHERE the unexplained variance lands is an artefact of which contracts
+happen to be in the panel, not a stable property of any one contract. The
+U-shape in [54.9, 6.5, 5.1, 16.6] was over-read -- a mechanism was built
+on the pattern of a vector whose pattern is not stable under panel
+perturbation. That inference, not the AR(1) state itself, was the error.
+
+Why this module is kept, not deleted
+-------------------------------------
+The code is correct for the hypothesis it was built to test, it nests
+exactly (sigma_p=0 reproduces S0 to 1e-9, pinned in
+tests/test_pricing_error.py), and a single-contract pricing-error state
+becomes a meaningful, testable question again on a deep panel (Runbook
+Step 2) where the measurement-error vector -- and therefore any single
+contract's claim to be the misspecified one -- is actually identified.
+Deleting this would also delete the record of how the front-contract
+hypothesis was tested and settled.
 
 This reuses csr.pricing.fit's pack/unpack/student_t_weights directly
 (both are generic over the parameter vector or residual shape, no S0P-
 specific logic needed there) and csr.state.augment's
-add_pricing_error_state/prior for the state construction itself. The
-sigma_p=0 nesting property is pinned in tests/test_pricing_error.py,
-independent of any fitting code here -- this module assumes that gate
-already passed.
+add_pricing_error_state/prior for the state construction itself.
 """
 
 from __future__ import annotations
