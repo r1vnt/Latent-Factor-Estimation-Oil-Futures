@@ -86,6 +86,79 @@ def augment_prior(x0: np.ndarray, P0: np.ndarray, Q2_0: np.ndarray):
     return x4, P4
 
 
+def add_pricing_error_state(sys: dict, phi: float, sigma_p: float,
+                            contract_index: int = 0) -> dict:
+    """Extend a k-dimensional system to k+1 dimensions by appending an
+    AR(1) pricing-error state p_t, loading 1 onto exactly one observation
+    (``contract_index``) and 0 onto every other:
+
+        p_{t+1} = phi * p_t + eps_t,   eps ~ N(0, sigma_p^2)
+        y_{t,contract_index} += p_t
+
+    A general third pricing factor is not identifiable in a shallow
+    (four-contract) panel -- restricting it to load on a single, named
+    contract is what makes it estimable at all: two parameters (phi,
+    sigma_p) rather than a full loading vector, targeted at the
+    front-contract misspecification the sigma_meas profile actually shows
+    ([54.9, 6.5, 5.1, 16.6] bp -- the front contract absorbing eight times
+    the error of the middle of the curve on the single most liquid
+    instrument in the panel is a pricing-error signature, not noise).
+
+    Works generically over the input dimension k -- called on the raw
+    2-dim base_system output for S0P, or on the already news-augmented
+    4-dim system for the full SxP lattice -- appending the new state as
+    the LAST dimension either way, never interleaved with the existing
+    ones. ``sigma_p = 0`` must reproduce the input system's likelihood
+    exactly (p_t is then deterministically 0 for all t, contributing
+    nothing to any observation) -- pinned in tests/test_pricing_error.py
+    before this is trusted for any fit.
+    """
+    n, m = sys["n"], sys["m"]
+    k = sys["T"].shape[0]
+    T, c, Z = sys["T"], np.asarray(sys["c"], float), sys["Z"]
+    Q = sys["Q"]
+    if Q.ndim == 2:
+        Q = np.repeat(Q[None, :, :], n, axis=0)
+
+    T_new = np.zeros((k + 1, k + 1))
+    T_new[:k, :k] = T
+    T_new[k, k] = phi
+
+    c_new = np.zeros((n, k + 1))
+    c_new[:, :k] = c if c.ndim == 2 else c[None, :]
+
+    Q_new = np.zeros((n, k + 1, k + 1))
+    Q_new[:, :k, :k] = Q
+    Q_new[:, k, k] = sigma_p ** 2
+
+    Z_new = np.zeros((n, m, k + 1))
+    Z_new[:, :, :k] = Z
+    Z_new[:, contract_index, k] = 1.0
+
+    out = dict(sys)
+    out.update({"T": T_new, "c": c_new, "Q": Q_new, "Z": Z_new, "k": k + 1})
+    return out
+
+
+def add_pricing_error_prior(x0: np.ndarray, P0: np.ndarray,
+                            phi: float, sigma_p: float):
+    """Extend a k-dim prior to k+1 dims: p_0 ~ N(0, stationary variance),
+    uncorrelated with the existing states at t=0. sigma_p=0 gives an exact
+    point mass at 0, matching add_pricing_error_state's sigma_p=0 nesting
+    property (p_t deterministically 0 for all t)."""
+    k = len(x0)
+    x_new = np.zeros(k + 1)
+    x_new[:k] = x0
+    P_new = np.zeros((k + 1, k + 1))
+    P_new[:k, :k] = P0
+    denom = max(1.0 - phi ** 2, 1e-12)   # phi = tanh(z) so |phi| < 1 strictly;
+                                        # the floor only guards float error
+                                        # right at the boundary, never reached
+                                        # by the tanh parameterisation itself
+    P_new[k, k] = sigma_p ** 2 / denom
+    return x_new, P_new
+
+
 def append_news_block(aug: dict, news: np.ndarray, G: np.ndarray,
                       a_n: np.ndarray, R_diag: np.ndarray,
                       lag: int = 1) -> dict:
