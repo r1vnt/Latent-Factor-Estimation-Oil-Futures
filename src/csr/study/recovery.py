@@ -45,6 +45,7 @@ own Sec. 1:
 
 from __future__ import annotations
 
+import math
 from dataclasses import dataclass, field
 
 import numpy as np
@@ -188,6 +189,24 @@ class RegressionResult:
     @property
     def b2_significant(self) -> bool:
         return self.p_b2 < 0.05
+
+    @property
+    def n_regressors(self) -> int:
+        """1 for a single-regressor fit (b1/p_b1 are NaN by construction,
+        e.g. xi_monopoly_test -- no naive comparator fit at all), else 2."""
+        return 1 if np.isnan(self.b1) else 2
+
+    @property
+    def r_squared_adj(self) -> float:
+        """Adjusted R^2 -- penalises R^2 for the ratio of regressors to
+        observations, which matters here specifically because several
+        horizons run at T/h in the low tens (Sec. 7); raw R^2 alone
+        overstates fit quality exactly where the effective sample is
+        smallest."""
+        n, k = self.n_obs, self.n_regressors
+        if n - k - 1 <= 0:
+            return float("nan")
+        return 1.0 - (1.0 - self.r_squared) * (n - 1) / (n - k - 1)
 
     def pattern(self) -> str:
         """Which of the four sig/insig combinations this regression landed
@@ -1073,4 +1092,138 @@ def circular_block_bootstrap_restricted_null(
         "n_boot": n_boot, "n_skipped": n_skipped, "n_used": n_used,
         "n_monotone": n_monotone,
         "fraction_monotone": n_monotone / n_used if n_used else float("nan"),
+    }
+
+
+# ===== 10. Three checks before scoping a fix ================================
+#
+# The s-hat profile ([54.9, 6.5, 5.1, 16.6] bp) reframed the whole batch: not
+# a noise-level estimate but front-contract misspecification the state has
+# nowhere else to put. Two of the results built on top of that reframing
+# can still be overturned by their own weaknesses, so each gets checked
+# before anyone writes about it.
+
+
+def _norm_cdf(x: float) -> float:
+    return 0.5 * (1.0 + math.erf(x / math.sqrt(2.0)))
+
+
+def disagreement_event_study_block_bootstrap(
+    l_obs: np.ndarray, l_filt: np.ndarray, log_f: np.ndarray, h: int,
+    block_length: int | None = None, n_boot: int = 2000, seed: int = 0,
+) -> dict:
+    """McNemar's test assumes the 225 disagreement days are independent.
+    They arrive in 72 runs (median length 2, max 20, Sec. 8), and at
+    large h the forward windows from days inside the same run -- or even
+    nearby runs -- overlap almost entirely, so day-level McNemar overstates
+    significance, likely badly. This resamples the (l_obs, l_filt, y)
+    triple jointly via circular blocks (default block_length =
+    max(h, 20), the observed max run length, so a block is long enough to
+    keep an entire disagreement run and its h-day forward window together
+    rather than splitting it), recomputes the disagreement-restricted
+    win-rate difference on each replicate, and reports a bootstrap SE/z/p
+    for the ACTUAL observed difference -- a corrected significance
+    assessment of the same statistic, not a different null hypothesis.
+    """
+    if block_length is None:
+        block_length = max(h, 20)
+    rng = np.random.default_rng(seed)
+    y = cross_maturity_spread_change(log_f, h)
+    n = len(l_obs)
+
+    valid0 = np.isfinite(l_obs) & np.isfinite(l_filt) & np.isfinite(y)
+    disagree0 = (l_obs != l_filt) & valid0
+    obs_correct0 = np.sign(l_obs[disagree0]) == np.sign(y[disagree0])
+    filt_correct0 = np.sign(l_filt[disagree0]) == np.sign(y[disagree0])
+    observed_diff = float(filt_correct0.mean() - obs_correct0.mean()) if disagree0.any() else float("nan")
+
+    diffs = []
+    for _ in range(n_boot):
+        idx = _circular_block_indices(rng, n, block_length)
+        lo_b, lf_b, y_b = l_obs[idx], l_filt[idx], y[idx]
+        valid = np.isfinite(lo_b) & np.isfinite(lf_b) & np.isfinite(y_b)
+        disagree = (lo_b != lf_b) & valid
+        if disagree.sum() < 5:
+            continue
+        obs_c = np.sign(lo_b[disagree]) == np.sign(y_b[disagree])
+        filt_c = np.sign(lf_b[disagree]) == np.sign(y_b[disagree])
+        diffs.append(filt_c.mean() - obs_c.mean())
+
+    diffs = np.array(diffs)
+    se = float(diffs.std(ddof=1)) if len(diffs) > 1 else float("nan")
+    z = observed_diff / se if se and np.isfinite(se) and se > 0 else float("nan")
+    p = float(2.0 * (1.0 - _norm_cdf(abs(z)))) if np.isfinite(z) else float("nan")
+
+    return {
+        "h": h, "n_disagree": int(disagree0.sum()), "block_length": block_length,
+        "n_boot_used": len(diffs),
+        "observed_diff": observed_diff, "block_bootstrap_se": se,
+        "z": z, "p": p,
+    }
+
+
+def xi_encompasses_log_price(x_filt: np.ndarray, log_f: np.ndarray, h: int
+                             ) -> RegressionResult:
+    """The decisive check on the xi monopoly claim: xi_hat is the long-run
+    factor and will itself be close to the log front price, so "xi_hat
+    predicts long-horizon level changes" could just be repackaged mean
+    reversion in log(price) -- a well-known result the filter adds nothing
+    to. Encompassing form, reusing the same machinery and reasoning as the
+    naive/filtered spread labels (Sec. 3): y_t^(h) = a + c1*log_f1_t +
+    c2*xi_hat_t + e_t. If xi_hat subsumes log_f1 (c2 significant, c1 not),
+    the monopoly claim is genuine. If log_f1 does the work instead, the
+    result is real but not the filter's -- the same class of error as the
+    original Study A flaw, a predictor that is an affine function of the
+    thing it predicts.
+    """
+    y = front_return(log_f, h)
+    log_f1 = log_f[:, 0]
+    xi_hat = x_filt[:, 1]
+    return encompassing_regression(y, log_f1, xi_hat, h,
+                                   target="xi_encompasses_log_price", subset="full")
+
+
+def xi_monopoly_bootstrap_null(x_filt: np.ndarray, log_f: np.ndarray, h: int,
+                               block_length: int | None = None,
+                               n_boot: int = 2000, seed: int = 0) -> dict:
+    """Block-bootstrap null distribution for the xi monopoly test's R^2,
+    complementing the HAC p-value with a clustering-aware one. xi_hat is
+    circular-block-resampled (block_length defaults to h) against the
+    REAL, unresampled target -- breaking the true temporal alignment while
+    preserving xi_hat's own serial dependence -- and the single-regressor
+    HAC fit is rerun on each replicate. Reports the fraction of null
+    replicates whose R^2 meets or exceeds the observed one, which does not
+    inherit the small-T/h inflation that raw (non-adjusted) R^2 carries at
+    the low end of the horizon range on its own.
+    """
+    if block_length is None:
+        block_length = h
+    rng = np.random.default_rng(seed)
+    xi_hat = x_filt[:, 1]
+    y = front_return(log_f, h)
+    n = len(xi_hat)
+
+    observed = xi_monopoly_test(x_filt, log_f, h)
+
+    r2_null = []
+    for _ in range(n_boot):
+        idx = _circular_block_indices(rng, n, block_length)
+        xi_b = xi_hat[idx]
+        valid = np.isfinite(y) & np.isfinite(xi_b)
+        if valid.sum() < 10:
+            continue
+        X = sm.add_constant(xi_b, has_constant="add")
+        res = sm.OLS(np.where(valid, y, np.nan), X, missing="drop").fit()
+        if res.model.rank < X.shape[1]:
+            continue
+        r2_null.append(res.rsquared)
+
+    r2_null = np.array(r2_null)
+    frac_exceed = float(np.mean(r2_null >= observed.r_squared)) if len(r2_null) else float("nan")
+    return {
+        "h": h, "n_boot_used": len(r2_null),
+        "observed_r2": observed.r_squared, "observed_r2_adj": observed.r_squared_adj,
+        "null_r2_mean": float(r2_null.mean()) if len(r2_null) else float("nan"),
+        "null_r2_p95": float(np.percentile(r2_null, 95)) if len(r2_null) else float("nan"),
+        "fraction_null_r2_exceeds_observed": frac_exceed,
     }

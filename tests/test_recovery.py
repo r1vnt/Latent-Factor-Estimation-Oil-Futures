@@ -27,12 +27,15 @@ from csr.study.recovery import (RegressionResult, circular_block_bootstrap_monot
                                 continuous_filtered, continuous_naive,
                                 cross_maturity_spread_change,
                                 disagreement_by_year, disagreement_clustering,
-                                disagreement_event_study, encompassing_regression,
-                                filtered_label, forward_spread_level, front_return,
+                                disagreement_event_study,
+                                disagreement_event_study_block_bootstrap,
+                                encompassing_regression, filtered_label,
+                                forward_spread_level, front_return,
                                 label_agreement, lag_labels, naive_label,
                                 realised_vol, reversion_fraction,
                                 run_corrected_battery, run_horizon_robustness,
-                                run_study_a, spread_change, xi_monopoly_test)
+                                run_study_a, spread_change, xi_encompasses_log_price,
+                                xi_monopoly_bootstrap_null, xi_monopoly_test)
 
 DT = 1.0 / 252.0
 
@@ -718,3 +721,127 @@ def test_restricted_null_residuals_zero_mean_and_correct_length():
     # reconstructing y from fitted + resid must recover the original
     valid = ~np.isnan(y)
     np.testing.assert_allclose(fitted[valid] + resid[valid], y[valid])
+
+
+# --------------------------------------------------- RegressionResult stats
+def test_r_squared_adj_and_n_regressors():
+    r2 = RegressionResult(target="t", horizon=22, subset="full", n_obs=100,
+                          alpha=0.0, b1=0.1, b2=0.1, se_b1=0.05, se_b2=0.05,
+                          p_b1=0.5, p_b2=0.5, r_squared=0.10)
+    assert r2.n_regressors == 2
+    expected = 1.0 - (1.0 - 0.10) * 99 / 97
+    assert r2.r_squared_adj == pytest.approx(expected)
+
+    r1 = RegressionResult(target="t", horizon=22, subset="full", n_obs=100,
+                          alpha=0.0, b1=float("nan"), b2=0.1, se_b1=float("nan"),
+                          se_b2=0.05, p_b1=float("nan"), p_b2=0.5, r_squared=0.10)
+    assert r1.n_regressors == 1
+    expected1 = 1.0 - (1.0 - 0.10) * 99 / 98
+    assert r1.r_squared_adj == pytest.approx(expected1)
+
+
+def test_r_squared_adj_nan_when_n_too_small():
+    r = RegressionResult(target="t", horizon=22, subset="full", n_obs=2,
+                         alpha=0.0, b1=0.1, b2=0.1, se_b1=0.05, se_b2=0.05,
+                         p_b1=0.5, p_b2=0.5, r_squared=0.10)
+    assert np.isnan(r.r_squared_adj)
+
+
+# --------------------------------------------- McNemar block-bootstrap check
+def test_disagreement_event_study_block_bootstrap_matches_observed_diff():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1500, m=4, seed=17)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+    l_obs = naive_label(log_f)
+    l_filt = filtered_label(SS_OIL, x_filt, tau)
+
+    ev = disagreement_event_study(l_obs, l_filt, log_f, h=22)
+    bb = disagreement_event_study_block_bootstrap(
+        l_obs, l_filt, log_f, h=22, n_boot=100, seed=0)
+
+    expected_diff = ev["filt_win_rate"] - ev["obs_win_rate"]
+    assert bb["observed_diff"] == pytest.approx(expected_diff)
+    assert bb["block_length"] == max(22, 20)
+    assert bb["n_boot_used"] > 0
+    if np.isfinite(bb["p"]):
+        assert 0.0 <= bb["p"] <= 1.0
+
+
+def test_disagreement_event_study_block_bootstrap_default_block_length():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1500, m=4, seed=17)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+    l_obs = naive_label(log_f)
+    l_filt = filtered_label(SS_OIL, x_filt, tau)
+
+    bb_small_h = disagreement_event_study_block_bootstrap(
+        l_obs, l_filt, log_f, h=5, n_boot=20, seed=0)
+    assert bb_small_h["block_length"] == 20   # max(5, 20)
+
+    bb_large_h = disagreement_event_study_block_bootstrap(
+        l_obs, l_filt, log_f, h=66, n_boot=20, seed=0)
+    assert bb_large_h["block_length"] == 66   # max(66, 20)
+
+
+# --------------------------------------------------- xi encompassing check
+def test_xi_encompasses_log_price_is_an_encompassing_regression():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1500, m=4, seed=17)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+
+    r = xi_encompasses_log_price(x_filt, log_f, h=66)
+    assert r.target == "xi_encompasses_log_price"
+    assert not np.isnan(r.b1) and not np.isnan(r.b2)   # two real regressors
+    assert r.n_regressors == 2
+
+
+def test_xi_encompasses_log_price_correctly_attributes_signal_to_log_f1():
+    """When the true relationship runs through log_f1 and xi_hat is
+    unrelated noise, c1 (log_f1) should come back significant and c2
+    (xi_hat) should not -- the exact "repackaged mean reversion" failure
+    mode this check exists to catch."""
+    rng = np.random.default_rng(9)
+    n = 1000
+    h = 22
+    log_f1 = np.cumsum(rng.normal(0, 0.01, n))
+    xi_hat = rng.normal(0, 1, n)   # independent noise, no real relationship
+    x_filt = np.zeros((n, 4))
+    x_filt[:, 1] = xi_hat
+
+    # front_return(log_f, h) constructed to depend on log_f1 only.
+    front = np.zeros(n)
+    noise = rng.normal(0, 0.001, n)
+    for t in range(n - h):
+        front[t + h] = front[t] - 0.3 * log_f1[t] + noise[t]
+    log_f = front.reshape(-1, 1)
+    log_f_full = np.column_stack([log_f1, log_f[:, 0]])
+
+    r = xi_encompasses_log_price(x_filt, log_f_full, h)
+    assert r.p_b1 < 0.01     # log_f1 (c1, here called b1) does the work
+    assert r.p_b2 > 0.05     # xi_hat (c2, here called b2) does not
+
+
+# ---------------------------------------- xi monopoly block-bootstrap null
+def test_xi_monopoly_bootstrap_null_smoke_and_bounds():
+    log_f, tau, _ = simulate_panel(SS_OIL, n=1200, m=4, seed=41)
+    ll, x_filt, Pf, resid, n_obs = run_spec(REGISTRY["S0"], SS_OIL, log_f, tau, DT)
+
+    out = xi_monopoly_bootstrap_null(x_filt, log_f, h=66, n_boot=100, seed=0)
+    assert out["n_boot_used"] > 0
+    assert 0.0 <= out["fraction_null_r2_exceeds_observed"] <= 1.0
+    assert out["observed_r2_adj"] <= out["observed_r2"] + 1e-9
+
+
+def test_xi_monopoly_bootstrap_null_low_fraction_for_a_real_relationship():
+    """A strong, real relationship should exceed nearly all null-replicate
+    R^2 values -- confirms the test has power, not just that it runs."""
+    rng = np.random.default_rng(3)
+    n = 1200
+    h = 22
+    xi_hat = np.cumsum(rng.normal(0, 0.02, n))
+    x_filt = np.zeros((n, 4))
+    x_filt[:, 1] = xi_hat
+    front = np.zeros(n)
+    for t in range(n - h):
+        front[t + h] = front[t] + 0.8 * xi_hat[t] + rng.normal(0, 0.01)
+    log_f = front.reshape(-1, 1)
+
+    out = xi_monopoly_bootstrap_null(x_filt, log_f, h, n_boot=200, seed=1)
+    assert out["fraction_null_r2_exceeds_observed"] < 0.1
