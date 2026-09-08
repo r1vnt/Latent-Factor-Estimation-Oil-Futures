@@ -840,11 +840,36 @@ def disagreement_clustering(l_obs: np.ndarray, l_filt: np.ndarray,
     }
 
 
+MIN_BOOTSTRAP_BLOCKS = 4
+
+
+def _block_length_ok(n: int, block_length: int, min_blocks: int = MIN_BOOTSTRAP_BLOCKS) -> bool:
+    """Live-bug guard. As block_length -> n, n_blocks -> 1: every circular
+    resample becomes a single rotation of the whole series, which has the
+    SAME mean as the original every time (a rotation permutes WHICH day is
+    first, not the multiset of values) -- the null distribution collapses
+    to a point and whatever z/p/fraction gets computed from it comes back
+    0 or 1 regardless of the data, silently. Fires exactly at the small-n,
+    long-h combinations this study lives at (e.g. h=252 on a panel with
+    a few thousand rows already leaves few independent 252-day blocks).
+    Every circular-block-bootstrap caller must check this BEFORE its loop
+    and return NaN outright if it fails -- a test that cannot respect the
+    requested dependence length has not been run, not run badly.
+    """
+    return n // block_length >= min_blocks
+
+
 def _circular_block_indices(rng: np.random.Generator, n: int, block_length: int) -> np.ndarray:
     """One circular-block-bootstrap resample of indices 0..n-1: draw block
     start points uniformly, wrap each block around the end of the series
     circularly, concatenate to length n. Preserves each series' own serial
-    dependence up to ~block_length, unlike an i.i.d. row permutation."""
+    dependence up to ~block_length, unlike an i.i.d. row permutation.
+
+    Callers must check _block_length_ok(n, block_length) themselves before
+    looping -- this function does not, since the check is invariant across
+    replicates within one call and belongs outside the loop, not repeated
+    inside it every draw.
+    """
     n_blocks = int(np.ceil(n / block_length))
     starts = rng.integers(0, n, size=n_blocks)
     idx = np.concatenate([(np.arange(block_length) + s) % n for s in starts])
@@ -872,6 +897,12 @@ def circular_block_bootstrap_monotonicity(
     l_obs = naive_label(log_f)
     l_filt = filtered_label(p, x_filt, tau)
     n = len(l_obs)
+    if not _block_length_ok(n, block_length):
+        return {"n_boot": n_boot, "n_skipped": n_boot, "n_used": 0,
+               "n_monotone": 0, "fraction_monotone": float("nan"),
+               "block_length_rejected": True,
+               "reason": f"n={n}, block_length={block_length} gives fewer than "
+                        f"{MIN_BOOTSTRAP_BLOCKS} blocks -- not run"}
 
     ys = {h: cross_maturity_spread_change(log_f, h) for h in horizons}
     maxlags = {h: int(np.floor(1.5 * h)) for h in horizons}
@@ -1059,6 +1090,12 @@ def circular_block_bootstrap_restricted_null(
     l_obs = naive_label(log_f)
     l_filt = filtered_label(p, x_filt, tau)
     n = len(l_obs)
+    if not _block_length_ok(n, block_length):
+        return {"n_boot": n_boot, "n_skipped": n_boot, "n_used": 0,
+               "n_monotone": 0, "fraction_monotone": float("nan"),
+               "block_length_rejected": True,
+               "reason": f"n={n}, block_length={block_length} gives fewer than "
+                        f"{MIN_BOOTSTRAP_BLOCKS} blocks -- not run"}
 
     ys = {h: cross_maturity_spread_change(log_f, h) for h in horizons}
     maxlags = {h: int(np.floor(1.5 * h)) for h in horizons}
@@ -1137,6 +1174,14 @@ def disagreement_event_study_block_bootstrap(
     filt_correct0 = np.sign(l_filt[disagree0]) == np.sign(y[disagree0])
     observed_diff = float(filt_correct0.mean() - obs_correct0.mean()) if disagree0.any() else float("nan")
 
+    if not _block_length_ok(n, block_length):
+        return {"h": h, "n_disagree": int(disagree0.sum()), "block_length": block_length,
+               "n_boot_used": 0, "observed_diff": observed_diff,
+               "block_bootstrap_se": float("nan"), "z": float("nan"), "p": float("nan"),
+               "block_length_rejected": True,
+               "reason": f"n={n}, block_length={block_length} gives fewer than "
+                        f"{MIN_BOOTSTRAP_BLOCKS} blocks -- not run"}
+
     diffs = []
     for _ in range(n_boot):
         idx = _circular_block_indices(rng, n, block_length)
@@ -1158,7 +1203,7 @@ def disagreement_event_study_block_bootstrap(
         "h": h, "n_disagree": int(disagree0.sum()), "block_length": block_length,
         "n_boot_used": len(diffs),
         "observed_diff": observed_diff, "block_bootstrap_se": se,
-        "z": z, "p": p,
+        "z": z, "p": p, "block_length_rejected": False,
     }
 
 
@@ -1204,6 +1249,14 @@ def xi_monopoly_bootstrap_null(x_filt: np.ndarray, log_f: np.ndarray, h: int,
     n = len(xi_hat)
 
     observed = xi_monopoly_test(x_filt, log_f, h)
+    if not _block_length_ok(n, block_length):
+        return {"h": h, "n_boot_used": 0, "observed_r2": observed.r_squared,
+               "observed_r2_adj": observed.r_squared_adj,
+               "null_r2_mean": float("nan"), "null_r2_p95": float("nan"),
+               "fraction_null_r2_exceeds_observed": float("nan"),
+               "block_length_rejected": True,
+               "reason": f"n={n}, block_length={block_length} gives fewer than "
+                        f"{MIN_BOOTSTRAP_BLOCKS} blocks -- not run"}
 
     r2_null = []
     for _ in range(n_boot):
@@ -1226,4 +1279,5 @@ def xi_monopoly_bootstrap_null(x_filt: np.ndarray, log_f: np.ndarray, h: int,
         "null_r2_mean": float(r2_null.mean()) if len(r2_null) else float("nan"),
         "null_r2_p95": float(np.percentile(r2_null, 95)) if len(r2_null) else float("nan"),
         "fraction_null_r2_exceeds_observed": frac_exceed,
+        "block_length_rejected": False,
     }

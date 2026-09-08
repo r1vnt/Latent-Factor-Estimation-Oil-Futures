@@ -21,7 +21,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from csr.pricing.specs import REGISTRY, run_spec                    # noqa: E402
 from csr.pricing.twofactor import TwoFactorParams                    # noqa: E402
 from csr.simulate import SS_OIL, simulate_panel                       # noqa: E402
-from csr.study.recovery import (RegressionResult, circular_block_bootstrap_monotonicity,  # noqa: E402
+from csr.study.recovery import (RegressionResult, _block_length_ok,  # noqa: E402
+                                circular_block_bootstrap_monotonicity,
                                 circular_block_bootstrap_restricted_null,
                                 classify_gate, confidence_split_regression,
                                 continuous_filtered, continuous_naive,
@@ -845,3 +846,65 @@ def test_xi_monopoly_bootstrap_null_low_fraction_for_a_real_relationship():
 
     out = xi_monopoly_bootstrap_null(x_filt, log_f, h, n_boot=200, seed=1)
     assert out["fraction_null_r2_exceeds_observed"] < 0.1
+
+
+# --------------------------------- block-length live-bug regression tests ---
+def test_block_length_near_n_is_rejected_not_silently_wrong():
+    """The live bug: as block_length -> n, n_blocks -> 1, every circular
+    resample is a single rotation of the whole series with the SAME mean
+    every time, so a bootstrap built on it would silently return a 0 or 1
+    p-value regardless of the data. _block_length_ok must reject this
+    BEFORE any resampling happens, and every block-bootstrap caller must
+    honour that rejection by returning NaN, not a number."""
+    assert not _block_length_ok(n=100, block_length=99)
+    assert not _block_length_ok(n=100, block_length=26)   # 100//26 = 3 < 4
+    assert _block_length_ok(n=100, block_length=25)        # 100//25 = 4, exactly the floor
+    assert _block_length_ok(n=1000, block_length=22)
+
+
+def test_disagreement_event_study_block_bootstrap_rejects_oversized_block():
+    rng = np.random.default_rng(0)
+    n = 200
+    l_obs = np.sign(rng.normal(size=n))
+    l_filt = np.sign(rng.normal(size=n))
+    log_f = np.cumsum(rng.normal(0, 0.01, (n, 4)), axis=0) + 70.0
+
+    out = disagreement_event_study_block_bootstrap(
+        l_obs, l_filt, log_f, h=22, block_length=190, n_boot=50, seed=1)
+    assert out["block_length_rejected"] is True
+    assert np.isnan(out["z"]) and np.isnan(out["p"])
+    assert out["n_boot_used"] == 0
+
+    # A sane block length on the same data must actually run.
+    out_ok = disagreement_event_study_block_bootstrap(
+        l_obs, l_filt, log_f, h=22, block_length=20, n_boot=50, seed=1)
+    assert out_ok["block_length_rejected"] is False
+
+
+def test_xi_monopoly_bootstrap_null_rejects_oversized_block():
+    rng = np.random.default_rng(2)
+    n = 150
+    x_filt = np.zeros((n, 4))
+    x_filt[:, 1] = np.cumsum(rng.normal(0, 0.02, n))
+    log_f = np.cumsum(rng.normal(0, 0.01, n)).reshape(-1, 1) + 70.0
+
+    out = xi_monopoly_bootstrap_null(x_filt, log_f, h=22, block_length=140, n_boot=50, seed=1)
+    assert out["block_length_rejected"] is True
+    assert np.isnan(out["fraction_null_r2_exceeds_observed"])
+
+
+def test_restricted_null_bootstrap_rejects_oversized_block():
+    rng = np.random.default_rng(4)
+    n = 200
+    m = 4
+    log_f = np.cumsum(rng.normal(0, 0.01, (n, m)), axis=0) + 70.0
+    tau = np.tile(np.linspace(0.1, 0.4, m), (n, 1))
+    x_filt = np.column_stack([np.cumsum(rng.normal(0, 0.02, n)),
+                              np.full(n, np.log(70.0))])
+
+    out = circular_block_bootstrap_restricted_null(
+        SS_OIL, x_filt, log_f, tau, horizons=(5, 22), block_length=190,
+        n_boot=20, seed=1)
+    assert out["block_length_rejected"] is True
+    assert np.isnan(out["fraction_monotone"])
+    assert out["n_used"] == 0
