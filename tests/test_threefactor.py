@@ -11,7 +11,8 @@ import numpy as np
 import pytest
 
 from csr.pricing.threefactor import (A_tau3, ThreeFactorParams, base_system3,
-                                     from_two_factor, initial_state3)
+                                     from_two_factor, initial_state3,
+                                     scale_variances3)
 from csr.pricing.twofactor import A_tau, TwoFactorParams, base_system
 from csr.simulate import SS_OIL
 
@@ -128,6 +129,32 @@ def test_single_kappa_slides_with_the_maturity_window():
 
     assert front > full > back, (front, full, back)
     assert front - back > 0.4, "expected the observed magnitude of sliding"
+
+
+def test_scale_variances3_gamma_v_zero_is_a_noop():
+    p = _p3(gamma_v=0.3)  # nonzero gamma_v, but no rv_lag passed
+    sys = base_system3(p, np.tile(TAU18, (5, 1)), DT)
+    out = scale_variances3(sys, p, rv_lag=None)
+    np.testing.assert_array_equal(out["Q"], sys["Q"])
+
+    p0 = _p3(gamma_v=0.0)
+    out0 = scale_variances3(sys, p0, rv_lag=np.ones(5))
+    np.testing.assert_array_equal(out0["Q"], sys["Q"])
+
+
+def test_scale_variances3_scales_chi_block_only():
+    p = _p3(gamma_v=0.5, rho1x=0.2, rho2x=-0.1)
+    sys = base_system3(p, np.tile(TAU18, (3, 1)), DT)
+    rv = np.array([1.0, -1.0, 0.0])
+    out = scale_variances3(sys, p, rv_lag=rv)
+    s = np.exp(p.gamma_v * rv)
+
+    np.testing.assert_allclose(out["Q"][:, 0, 0], sys["Q"][:, 0, 0] * s)
+    np.testing.assert_allclose(out["Q"][:, 1, 1], sys["Q"][:, 1, 1] * s)
+    np.testing.assert_allclose(out["Q"][:, 0, 2], sys["Q"][:, 0, 2] * np.sqrt(s))
+    np.testing.assert_allclose(out["Q"][:, 1, 2], sys["Q"][:, 1, 2] * np.sqrt(s))
+    # xi's own variance is untouched
+    np.testing.assert_allclose(out["Q"][:, 2, 2], sys["Q"][:, 2, 2])
 
 
 def test_two_rate_model_reproduces_its_own_curve_on_every_window():

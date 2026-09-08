@@ -83,6 +83,7 @@ class ThreeFactorParams:
     mu_xi_star: float = 0.0
     lambda1: float = 0.0
     lambda2: float = 0.0
+    gamma_v: float = 0.0      # lagged realised vol -> process noise (eq. 24)
 
     def __post_init__(self):
         if not (self.kappa1 > self.kappa2):
@@ -174,6 +175,41 @@ def base_system3(p: ThreeFactorParams, tau, dt: float) -> dict:
 
     return {"T": T, "c": c, "Q": Q, "Z": Z, "d": A_tau3(p, tau),
             "Hdiag": np.ones((n, m)), "n": n, "m": m, "k": 3}
+
+
+def scale_variances3(sys: dict, p: ThreeFactorParams, *, rv_lag=None) -> dict:
+    """Lagged-realised-vol process-noise scaling (eq. 24), ported from
+    twofactor.scale_variances to the two mean-reverting factors here.
+
+    Both chi1 and chi2 share the single gamma_v -- one common "how
+    volatile is the market right now" regime scaling both factors'
+    shock magnitude jointly, not two independent volatility channels.
+    Only entries touching chi1/chi2 scale (by s or sqrt(s), matching
+    twofactor.py's convention for how a scaled shock's own variance and
+    its covariance with an unscaled variable transform); q33 (xi-xi) is
+    untouched, and q12 scales by s but is 0 whenever rho12=0 regardless.
+
+    ``rv_lag`` must already be lagged by the caller -- see
+    twofactor.scale_variances's docstring for why (contemporaneous RV
+    would make the state prior a function of the data being explained).
+    """
+    n = sys["n"]
+    out = dict(sys)
+    if rv_lag is None or not p.gamma_v:
+        return out
+    s = np.exp(np.clip(p.gamma_v * np.asarray(rv_lag, float), -20.0, 20.0))
+    Q = sys["Q"].copy()
+    Q[:, 0, 0] *= s
+    Q[:, 1, 1] *= s
+    Q[:, 0, 1] *= s
+    Q[:, 1, 0] *= s
+    sqrt_s = np.sqrt(s)
+    Q[:, 0, 2] *= sqrt_s
+    Q[:, 2, 0] *= sqrt_s
+    Q[:, 1, 2] *= sqrt_s
+    Q[:, 2, 1] *= sqrt_s
+    out["Q"] = Q
+    return out
 
 
 def initial_state3(log_f, tau, p: ThreeFactorParams):
