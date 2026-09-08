@@ -88,7 +88,16 @@ def base_system(p: TwoFactorParams, tau: np.ndarray, dt: float) -> dict:
     Z[:, :, 0] = np.exp(-k * tau)
     Z[:, :, 1] = 1.0
     d = A_tau(p, tau)
-    Hdiag = np.repeat((np.asarray(p.sigma_meas, float) ** 2)[None, :], n, axis=0)
+    # sigma_meas is (m,) for the free per-contract parameterisation, or
+    # already (n, m) when it came from a maturity-indexed curve (e.g.
+    # csr.pricing.smoothmeas.sigma_from_tau) -- the latter is genuinely
+    # time-varying (tau shrinks daily between rolls) so it is used as-is,
+    # not re-broadcast from a single row.
+    sigma_meas = np.asarray(p.sigma_meas, float)
+    if sigma_meas.ndim == 1:
+        Hdiag = np.repeat((sigma_meas ** 2)[None, :], n, axis=0)
+    else:
+        Hdiag = sigma_meas ** 2
 
     return {"T": T, "c": c, "Q": Q, "Z": Z, "d": d, "Hdiag": Hdiag,
             "n": n, "m": m}

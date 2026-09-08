@@ -36,6 +36,7 @@ from scipy.optimize import minimize
 
 from ..state.augment import augment_prior, augment_system
 from ..state.fast import filter_uv, filter_uv_contributions
+from .smoothmeas import SmoothMeasParams, sigma_from_tau
 from .specs import REGISTRY, run_spec
 from .twofactor import TwoFactorParams, base_system, initial_state, scale_variances
 
@@ -103,6 +104,70 @@ def fit_s0_gaussian(log_f: np.ndarray, tau: np.ndarray, dt: float, m: int,
         if res2.fun < res.fun:
             res.x = res2.x
     p_hat = unpack(res.x, m, min_sigma_meas)
+    ll, x_filt, P_filt, resid, n_obs = run_spec(REGISTRY["S0"], p_hat, log_f, tau, dt)
+    return p_hat, res.hess_inv, x_filt, resid, n_obs, ll
+
+
+def pack_smooth(p: TwoFactorParams, a: float, b: float, c: float = 0.0,
+                quadratic: bool = False) -> np.ndarray:
+    """Unconstrained reparameterisation for the smooth measurement curve
+    (csr.pricing.smoothmeas): the same 7 structural entries as pack(),
+    followed by the curve's (a, b[, c]) in place of the m free sigma_meas
+    entries. No transform needed -- they're already unconstrained, and
+    unlike sigma_meas there is no floor to stay above (that's the point of
+    the parameterisation: see smoothmeas.py's module docstring). ``c`` is
+    only packed when ``quadratic`` (a hump term, still degenerate-proof
+    per smoothmeas.py) -- must match the ``quadratic`` passed to
+    unpack_smooth/fit_s0_*_smooth on the same theta vector."""
+    extra = [a, b, c] if quadratic else [a, b]
+    return np.concatenate([[
+        np.log(p.kappa), np.log(p.sigma_chi), np.log(p.sigma_xi),
+        np.arctanh(np.clip(p.rho, -0.999, 0.999)),
+        p.mu_xi, p.mu_xi_star, p.lambda_chi,
+    ], extra])
+
+
+def unpack_smooth(theta: np.ndarray, tau: np.ndarray,
+                  quadratic: bool = False) -> TwoFactorParams:
+    """Inverse of pack_smooth(). sigma_meas is built as the (n, m)
+    maturity-indexed curve exp(a + b*tau [+ c*tau^2]) -- via
+    csr.pricing.smoothmeas.sigma_from_tau -- rather than m free entries,
+    so it varies with ``tau`` and must be rebuilt whenever tau does (a
+    different panel, or a different slice of one)."""
+    e = np.exp(np.clip(theta[:3], -50.0, 50.0))
+    smooth = SmoothMeasParams(a=float(theta[7]), b=float(theta[8]),
+                              c=float(theta[9]) if quadratic else 0.0,
+                              quadratic=quadratic)
+    return TwoFactorParams(
+        kappa=e[0], sigma_chi=e[1], sigma_xi=e[2], rho=np.tanh(theta[3]),
+        mu_xi=theta[4], mu_xi_star=theta[5], lambda_chi=theta[6],
+        sigma_meas=sigma_from_tau(smooth, tau),
+    )
+
+
+def _neg_loglik_smooth(theta, log_f, tau, dt, quadratic=False):
+    p = unpack_smooth(theta, tau, quadratic)
+    ll, *_ = run_spec(REGISTRY["S0"], p, log_f, tau, dt)
+    return -ll if np.isfinite(ll) else 1e10
+
+
+def fit_s0_gaussian_smooth(log_f: np.ndarray, tau: np.ndarray, dt: float,
+                           theta0: np.ndarray, quadratic: bool = False):
+    """Gaussian MLE for S0 under the smooth measurement curve in place of
+    a free per-contract sigma_meas -- see fit_s0_gaussian, which this
+    otherwise mirrors exactly, and smoothmeas.py for why. ``theta0``
+    should come from pack_smooth(); csr.pricing.smoothmeas.
+    fit_smooth_to_vector(sigma_meas_from_a_free_fit, tau) gives a
+    reasonable (a, b) to build it from, even off a degenerate free fit."""
+    res = minimize(_neg_loglik_smooth, theta0, args=(log_f, tau, dt, quadratic),
+                   method="BFGS", options={"maxiter": 2000, "gtol": 1e-8})
+    if not res.success:
+        res2 = minimize(_neg_loglik_smooth, res.x, args=(log_f, tau, dt, quadratic),
+                        method="Nelder-Mead",
+                        options={"maxiter": 20000, "xatol": 1e-10, "fatol": 1e-8})
+        if res2.fun < res.fun:
+            res.x = res2.x
+    p_hat = unpack_smooth(res.x, tau, quadratic)
     ll, x_filt, P_filt, resid, n_obs = run_spec(REGISTRY["S0"], p_hat, log_f, tau, dt)
     return p_hat, res.hess_inv, x_filt, resid, n_obs, ll
 
@@ -176,6 +241,43 @@ def fit_s0_student_t(log_f: np.ndarray, tau: np.ndarray, dt: float, m: int,
                        method="BFGS", options={"maxiter": 300})
         theta = res.x
         p = unpack(theta, m, min_sigma_meas)
+        _, _, resid_raw, _ = weighted_filter(p, log_f, tau, dt, np.ones_like(log_f))
+        new_weight = student_t_weights(resid_raw, df)
+        shift = float(np.nanmax(np.abs(new_weight - weight)))
+        weight = new_weight
+        if shift < tol:
+            break
+
+    ll, x_filt, resid_raw, n_obs = weighted_filter(p, log_f, tau, dt, np.ones_like(log_f))
+    return p, x_filt, resid_raw, weight, it + 1
+
+
+def _neg_loglik_weighted_smooth(theta, log_f, tau, dt, weight, quadratic=False):
+    p = unpack_smooth(theta, tau, quadratic)
+    ll, _, _, _ = weighted_filter(p, log_f, tau, dt, weight)
+    return -ll if np.isfinite(ll) else 1e10
+
+
+def fit_s0_student_t_smooth(log_f: np.ndarray, tau: np.ndarray, dt: float,
+                            df: float, theta0: np.ndarray,
+                            n_outer: int = 30, tol: float = 1e-6,
+                            quadratic: bool = False):
+    """EM/scale-mixture Student-t(df) fit of S0 under the smooth
+    measurement curve -- identical procedure to fit_s0_student_t (see its
+    docstring), via pack_smooth/unpack_smooth instead of pack/unpack.
+    ``theta0`` should come from fit_s0_gaussian_smooth (pack_smooth(p_hat,
+    a, b[, c], quadratic=...)); ``quadratic`` must match what ``theta0``
+    was packed with."""
+    weight = np.ones_like(log_f)
+    theta = np.asarray(theta0, float).copy()
+    p = unpack_smooth(theta, tau, quadratic)
+    it = 0
+    for it in range(n_outer):
+        res = minimize(_neg_loglik_weighted_smooth, theta,
+                       args=(log_f, tau, dt, weight, quadratic),
+                       method="BFGS", options={"maxiter": 300})
+        theta = res.x
+        p = unpack_smooth(theta, tau, quadratic)
         _, _, resid_raw, _ = weighted_filter(p, log_f, tau, dt, np.ones_like(log_f))
         new_weight = student_t_weights(resid_raw, df)
         shift = float(np.nanmax(np.abs(new_weight - weight)))
