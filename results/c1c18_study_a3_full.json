@@ -86,7 +86,9 @@
       "n_runs": 53,
       "n_independent_runs": 18,
       "p_effect": 0.7028985507246377,
-      "required_n": 47.663923999025535,
+      "required_n_observed": 47.663923999025535,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
       "sufficient_disagree_days": true,
       "sufficient_independent_runs": false
     },
@@ -96,7 +98,9 @@
       "n_runs": 53,
       "n_independent_runs": 10,
       "p_effect": 0.8043478260869565,
-      "required_n": 21.183966221789127,
+      "required_n_observed": 21.183966221789127,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
       "sufficient_disagree_days": true,
       "sufficient_independent_runs": false
     },
@@ -106,7 +110,9 @@
       "n_runs": 53,
       "n_independent_runs": 5,
       "p_effect": 0.7004830917874396,
-      "required_n": 48.81937113327395,
+      "required_n_observed": 48.81937113327395,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
       "sufficient_disagree_days": true,
       "sufficient_independent_runs": false
     },
@@ -116,8 +122,10 @@
       "n_runs": 53,
       "n_independent_runs": 2,
       "p_effect": 0.4721549636803874,
-      "required_n": 2530.7666680684097,
-      "sufficient_disagree_days": false,
+      "required_n_observed": 2530.7666680684097,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
+      "sufficient_disagree_days": true,
       "sufficient_independent_runs": false
     }
   }

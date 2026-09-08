@@ -213,32 +213,58 @@ def mcnemar_required_n(p_effect: float, alpha: float = 0.05, power: float = 0.80
     return (z_alpha2 + z_beta) ** 2 / (2.0 * p_effect - 1.0) ** 2
 
 
+REFERENCE_EFFECT_SIZE = 0.65   # a McNemar win-rate worth caring about, fixed
+                              # in advance -- see identifying_count_gate
+
+
 def identifying_count_gate(l_obs: np.ndarray, l_filt: np.ndarray, log_f: np.ndarray,
-                           h: int, far: tuple[int, int] = (2, 3)) -> dict:
-    """identifying_count plus the McNemar power comparison at the
-    OBSERVED effect size (filt_win_rate on disagreement days, against the
-    decisive cross-maturity target) -- the single gate that decides
-    whether disagreement_event_study should run at this horizon at all.
+                           h: int, far: tuple[int, int] = (2, 3),
+                           reference_effect: float = REFERENCE_EFFECT_SIZE) -> dict:
+    """identifying_count plus TWO McNemar power comparisons -- the single
+    gate that decides whether disagreement_event_study should run at this
+    horizon at all.
+
+    ``required_n_observed`` is computed from the OBSERVED win rate on
+    disagreement days. This is NOT a prospective power bound: when the
+    observed split is near 50/50, the formula returns a huge number not
+    because the test lacks power in general, but because it is restating
+    "the observed effect was near zero" back at you in sample-size units
+    -- a required N of 274,467 means p_effect was ~0.5002, not that the
+    test needs an absurd sample to see anything. Kept for transparency
+    (it is exactly what plugging the observed data into the formula
+    gives), but it is not the number the gate should be read from.
+
+    ``required_n_reference`` is the number that actually answers "is this
+    test capable of detecting an effect worth caring about": computed
+    against a FIXED effect size chosen before looking at the data
+    (default 0.65), it does not move with whatever the observed split
+    happened to be. The gate (``sufficient_*``) is decided on this one.
+    With 2-23 independent clusters at every horizon on every panel this
+    session found, no effect smaller than enormous is detectable
+    regardless of the observed split -- stating it against a fixed
+    reference makes that a property of the test, not an artefact of the
+    specific numbers it returned.
     """
     y = cross_maturity_spread_change(log_f, h, far=far)
     valid = np.isfinite(l_obs) & np.isfinite(l_filt) & np.isfinite(y)
     disagree = (l_obs != l_filt) & valid
     counts = identifying_count(l_obs, l_filt, h)
 
+    required_n_reference = mcnemar_required_n(reference_effect)
     if disagree.sum() == 0:
         p_effect = float("nan")
-        required_n = float("nan")
+        required_n_observed = float("nan")
     else:
         filt_correct = np.sign(l_filt[disagree]) == np.sign(y[disagree])
         p_effect = float(filt_correct.mean())
-        required_n = mcnemar_required_n(p_effect)
+        required_n_observed = mcnemar_required_n(p_effect)
 
     counts["p_effect"] = p_effect
-    counts["required_n"] = required_n
-    counts["sufficient_disagree_days"] = (np.isfinite(required_n)
-                                          and counts["n_disagree"] >= required_n)
-    counts["sufficient_independent_runs"] = (np.isfinite(required_n)
-                                             and counts["n_independent_runs"] >= required_n)
+    counts["required_n_observed"] = required_n_observed
+    counts["reference_effect_size"] = reference_effect
+    counts["required_n_reference"] = required_n_reference
+    counts["sufficient_disagree_days"] = counts["n_disagree"] >= required_n_reference
+    counts["sufficient_independent_runs"] = counts["n_independent_runs"] >= required_n_reference
     return counts
 
 

@@ -86,7 +86,9 @@
       "n_runs": 62,
       "n_independent_runs": 23,
       "p_effect": 0.625,
-      "required_n": 125.58207574958546,
+      "required_n_observed": 125.58207574958546,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
       "sufficient_disagree_days": true,
       "sufficient_independent_runs": false
     },
@@ -96,7 +98,9 @@
       "n_runs": 62,
       "n_independent_runs": 12,
       "p_effect": 0.75625,
-      "required_n": 29.882706900555732,
+      "required_n_observed": 29.882706900555732,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
       "sufficient_disagree_days": true,
       "sufficient_independent_runs": false
     },
@@ -106,7 +110,9 @@
       "n_runs": 62,
       "n_independent_runs": 4,
       "p_effect": 0.63125,
-      "required_n": 113.90664467082586,
+      "required_n_observed": 113.90664467082586,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
       "sufficient_disagree_days": true,
       "sufficient_independent_runs": false
     },
@@ -116,8 +122,10 @@
       "n_runs": 62,
       "n_independent_runs": 2,
       "p_effect": 0.5434083601286174,
-      "required_n": 1041.3600778957175,
-      "sufficient_disagree_days": false,
+      "required_n_observed": 1041.3600778957175,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
+      "sufficient_disagree_days": true,
       "sufficient_independent_runs": false
     }
   }

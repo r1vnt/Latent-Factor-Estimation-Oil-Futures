@@ -132,7 +132,9 @@ for h in HORIZONS:
     gate = identifying_count_gate(l_obs, l_filt, log_f, h)
     print(f"h={h:4d}  n_disagree={gate['n_disagree']:4d}  n_runs={gate['n_runs']:3d}  "
          f"n_independent_runs={gate['n_independent_runs']:3d}  "
-         f"p_effect={gate['p_effect']:.4f}  required_n={gate['required_n']:.1f}  "
+         f"p_effect={gate['p_effect']:.4f}  "
+         f"required_n(observed, restates effect)={gate['required_n_observed']:.1f}  "
+         f"required_n(@ref={gate['reference_effect_size']})={gate['required_n_reference']:.1f}  "
          f"sufficient(disagree)={gate['sufficient_disagree_days']}  "
          f"sufficient(indep_runs)={gate['sufficient_independent_runs']}")
     if gate["sufficient_independent_runs"]:

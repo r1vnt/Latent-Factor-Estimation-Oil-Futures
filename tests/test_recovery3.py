@@ -217,3 +217,32 @@ def test_run_encompassing_battery_covers_both_targets_all_horizons():
         assert set(by_h.keys()) == {22, 66, 132, 252}
         for h, r in by_h.items():
             assert r.n_obs > 0
+
+
+def test_required_n_reference_does_not_move_with_the_observed_split():
+    """The reference-effect-size requirement must be identical regardless
+    of what the data happened to show -- unlike required_n_observed,
+    which just restates the observed split back in sample-size units and
+    is not a real power bound (a near-50/50 split gives an enormous
+    number not because the test lacks power, but because the effect was
+    ~zero)."""
+    rng = np.random.default_rng(9)
+    n = 400
+
+    def make(seed, split):
+        r = np.random.default_rng(seed)
+        l_obs = np.sign(r.normal(size=n))
+        l_filt = l_obs.copy()
+        flip = r.random(n) < 0.3
+        l_filt[flip] *= -1
+        log_f = np.cumsum(r.normal(0, 0.01, (n, 4)), axis=0) + 70.0
+        return l_obs, l_filt, log_f
+
+    l_obs_a, l_filt_a, log_f_a = make(1, 0.5)
+    l_obs_b, l_filt_b, log_f_b = make(2, 0.5)
+    gate_a = identifying_count_gate(l_obs_a, l_filt_a, log_f_a, h=22)
+    gate_b = identifying_count_gate(l_obs_b, l_filt_b, log_f_b, h=22)
+
+    assert gate_a["required_n_reference"] == gate_b["required_n_reference"]
+    assert gate_a["required_n_reference"] == pytest.approx(mcnemar_required_n(0.65))
+    # the observed-effect version is free to differ -- it's descriptive, not a bound
