@@ -1,0 +1,11 @@
+[13:00:42] fitting SD  n_base=15  p_feat=5  theta_len=25
+[13:02:35] Gaussian pre-fit done (112.3s)  ll=265115.77  kappa1=2.2081  kappa2=0.3676
+[13:10:43] SD done (600.5s, 22/200 EM iters, CONVERGED)
+kappa1=1.8866  kappa2=0.3889  ll=261978.25
+B (rows=chi1,chi2; cols=['sent_mean', 'theme_supply_disruption', 'theme_opec_policy', 'theme_geopolitics', 'theme_demand']):
+[[ 0.00098  0.00105  0.00487 -0.00218 -0.00021]
+ [ 0.00165 -0.00171 -0.0084   0.00482 -0.00057]]
+
+LR vs S0: ll_S0=261977.05  ll_SD=261978.25  LR=2.42  df=10  p=0.992
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_news_SD.json

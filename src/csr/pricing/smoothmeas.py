@@ -51,18 +51,30 @@ LOG_TICK = np.log(0.01 / 70.0)      # one tick at $70, in log-price units
 
 @dataclass(frozen=True)
 class SmoothMeasParams:
-    """log s(tau) = a + b*tau (+ c*tau^2 when ``quadratic``)."""
+    """log s(tau) = a + b*tau (+ c*tau^2 when ``quadratic``).
+
+    ``eta_v``, ``lambda_v`` extend eq. (25)'s measurement-noise inflation
+    with a front-concentrated, lagged-realised-vol term (Study A follow-
+    up: the filter's own innovation at the front two contracts predicts
+    future realised vol beyond what lagged RV alone does, so H itself
+    should be allowed to widen there specifically when recent vol was
+    high). See hdiag_from_tau for the exact functional form. Both default
+    to 0.0 so the extension nests the plain curve exactly."""
 
     a: float
     b: float = 0.0
     c: float = 0.0
     quadratic: bool = False
+    eta_v: float = 0.0
+    lambda_v: float = 0.0
 
     def n_params(self) -> int:
-        return 3 if self.quadratic else (1 if self.b == 0.0 else 2)
+        base = 3 if self.quadratic else (1 if self.b == 0.0 else 2)
+        return base + (2 if (self.eta_v != 0.0 or self.lambda_v != 0.0) else 0)
 
     def validate(self) -> None:
-        for nm, v in (("a", self.a), ("b", self.b), ("c", self.c)):
+        for nm, v in (("a", self.a), ("b", self.b), ("c", self.c),
+                     ("eta_v", self.eta_v), ("lambda_v", self.lambda_v)):
             if not np.isfinite(v):
                 raise ValueError(f"{nm} must be finite; got {v}")
         if not self.quadratic and self.c != 0.0:
@@ -85,17 +97,33 @@ def sigma_from_tau(p: SmoothMeasParams, tau) -> np.ndarray:
 
 
 def hdiag_from_tau(p: SmoothMeasParams, tau, *, eta_roll: float = 0.0,
-                   roll=None) -> np.ndarray:
+                   roll=None, rv_lag=None) -> np.ndarray:
     """Time-varying ``Hdiag`` (n, m) for the fast filter.
 
-    The roll inflation of eq. (25) is applied on top and stays separable: it
-    keys on a roll indicator, this on maturity, and the two are distinct
-    regressors rather than competing explanations of the same variation.
+        H_t,i = s(tau_i,t)^2 * exp(eta_roll*roll_t + eta_v*e^{-lambda_v*tau_i,t}*RV_{t-1})
+
+    Both extra terms are applied on top of the curve and stay separable
+    from it and from each other: roll keys on a roll indicator, this on
+    maturity, RV on the market's own recent realised volatility -- three
+    distinct regressors, not competing explanations of the same
+    variation. The RV term is front-concentrated by construction
+    (e^{-lambda_v*tau} decays with maturity, lambda_v >= 0 for that decay
+    to be a decay and not a blow-up at the back of the curve) rather than
+    applied flat across the panel, since that is the actual finding this
+    encodes -- Study A's innovation-vs-realised-vol regression -- not a
+    curve-wide approximation of it. ``rv_lag`` must already be lagged by
+    the caller (see twofactor.scale_variances's docstring for why a
+    contemporaneous RV would corrupt the prediction-error decomposition);
+    the caller is responsible for the SAME discipline enforced there.
     """
     t = np.atleast_2d(np.asarray(tau, float))
     H = sigma_from_tau(p, t) ** 2
     if roll is not None and eta_roll:
         H = H * np.exp(np.clip(eta_roll * np.asarray(roll, float), -20.0, 20.0))[:, None]
+    if rv_lag is not None and p.eta_v:
+        front_weight = np.exp(-p.lambda_v * t)
+        expo = p.eta_v * front_weight * np.asarray(rv_lag, float)[:, None]
+        H = H * np.exp(np.clip(expo, -20.0, 20.0))
     return H
 
 

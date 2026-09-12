@@ -1,0 +1,27 @@
+[14:58:40] fitting SM, drop C5-C12  m=10  warm k1=2.0165  k2=0.4591
+[15:01:12] Gaussian pre-fit done (151.7s)  ll=144356.86  k1=3.4267  k2=0.4545
+[15:34:43] SM drop C5-C12 done (2162.6s, 57/200 EM iters, CONVERGED)
+kappa1=2.0181  kappa2=0.4547  ll=136415.23
+G:
+[[ 0.75945  0.51318]
+ [-0.10166  0.0633 ]
+ [ 0.11652  0.13264]
+ [-0.39596 -0.03537]
+ [-0.26588 -0.25259]]
+a_n: [-0.07416  0.3375   0.25822  0.68583  0.2855 ]
+
+full-panel SM G (for comparison):
+[[ 0.57357  0.53934]
+ [ 0.156   -0.05768]
+ [ 0.18389  0.09504]
+ [-0.13381 -0.11166]
+ [-0.24903 -0.26396]]
+G difference (this block-out minus full panel):
+[[ 0.18588 -0.02616]
+ [-0.25767  0.12097]
+ [-0.06738  0.0376 ]
+ [-0.26215  0.07629]
+ [-0.01686  0.01137]]
+max |G difference|: 0.26215  vs. full G's own max |value|: 0.57357
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_news_SM_drop_C5_C12.json

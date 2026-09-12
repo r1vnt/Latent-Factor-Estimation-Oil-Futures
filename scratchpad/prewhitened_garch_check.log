@@ -1,0 +1,29 @@
+      AR(10) removes         sq-resid Ljung-Box p-values (post-whiten)
+C 1  R^2=0.0973   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C 2  R^2=0.4501   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C 3  R^2=0.5553   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C 4  R^2=0.1820   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C 5  R^2=0.6837   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C 6  R^2=0.7714   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C 7  R^2=0.6504   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C 8  R^2=0.5517   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C 9  R^2=0.6647   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C10  R^2=0.7770   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C11  R^2=0.7869   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C12  R^2=0.7616   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C13  R^2=0.7333   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C14  R^2=0.7576   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C15  R^2=0.8188   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C16  R^2=0.8773   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C17  R^2=0.9008   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+C18  R^2=0.9176   lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+
+==========================================================================================
+VERDICT
+==========================================================================================
+mean AR(10) R^2 removing level persistence: 0.6632
+post-whitening, squared-residual sig (p<0.01) at lag 1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+post-whitening, squared-residual sig (p<0.01) at lag 5: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+GENUINE VOLATILITY CLUSTERING -- squared AR residuals are STILL strongly autocorrelated after removing the level persistence. This is independent of the mean-dynamics question: a variance process (GARCH, or the existing gamma/intensity channel driven by something with short-lag persistence) is a real, separate finding.
+
+saved to results/c1c18_prewhitened_garch_check.json

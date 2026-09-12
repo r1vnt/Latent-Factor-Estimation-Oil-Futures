@@ -1,0 +1,71 @@
+panel: 3254 dates x 18 contracts, 2010-01-04 .. 2022-11-21
+baseline ll (recomputed from saved fit): 229642.91
+
+==========================================================================================
+LEAVE-ONE-OUT (18 fits)
+==========================================================================================
+[13:00:38] drop C1                           m=17  kappa=  0.7452  half-life=  339.8d  ll=   224857.40  pinned=none        n_iters= 10  (85.8s)
+[13:01:49] drop C2                           m=17  kappa=  0.7477  half-life=  338.6d  ll=   222847.04  pinned=none        n_iters=  9  (71.1s)
+[13:03:22] drop C3                           m=17  kappa=  0.7409  half-life=  341.7d  ll=   220637.22  pinned=none        n_iters= 10  (93.2s)
+[13:04:46] drop C4                           m=17  kappa=  0.7374  half-life=  343.3d  ll=   219188.84  pinned=none        n_iters= 10  (83.4s)
+[13:06:06] drop C5                           m=17  kappa=  0.7342  half-life=  344.8d  ll=   218077.71  pinned=none        n_iters= 11  (80.1s)
+[13:08:26] drop C6                           m=17  kappa=  0.7296  half-life=  347.0d  ll=   216816.38  pinned=none        n_iters= 24  (140.3s)
+[13:09:44] drop C7                           m=17  kappa=  0.7268  half-life=  348.4d  ll=   215281.25  pinned=none        n_iters= 10  (78.0s)
+[13:11:19] drop C8                           m=17  kappa=  0.7466  half-life=  339.1d  ll=   213206.37  pinned=none        n_iters= 13  (95.0s)
+[13:13:04] drop C9                           m=17  kappa=  0.7705  half-life=  328.6d  ll=   212666.17  pinned=none        n_iters= 14  (104.8s)
+[13:14:24] drop C10                          m=17  kappa=  0.7671  half-life=  330.0d  ll=   213147.43  pinned=none        n_iters= 12  (79.8s)
+[13:15:29] drop C11                          m=17  kappa=  0.7515  half-life=  336.9d  ll=   213592.03  pinned=none        n_iters=  9  (65.4s)
+[13:17:23] drop C12                          m=17  kappa=  0.7393  half-life=  342.5d  ll=   213437.29  pinned=none        n_iters= 20  (114.2s)
+[13:18:47] drop C13                          m=17  kappa=  0.7825  half-life=  323.5d  ll=   211753.16  pinned=none        n_iters= 10  (83.6s)
+[13:19:51] drop C14                          m=17  kappa=  0.7950  half-life=  318.5d  ll=   213106.06  pinned=none        n_iters= 11  (64.0s)
+[13:20:49] drop C15                          m=17  kappa=  0.7905  half-life=  320.3d  ll=   214788.92  pinned=none        n_iters= 10  (58.5s)
+[13:24:39] drop C16                          m=17  kappa=  0.7851  half-life=  322.5d  ll=   216057.07  pinned=none        n_iters= 35  (229.9s)
+[13:27:01] drop C17                          m=17  kappa=  0.7826  half-life=  323.5d  ll=   216894.37  pinned=none        n_iters= 22  (141.9s)
+[13:28:22] drop C18                          m=17  kappa=  0.7904  half-life=  320.3d  ll=   217856.38  pinned=none        n_iters= 14  (80.5s)
+
+==========================================================================================
+BLOCK-OUTS (3 fits)
+==========================================================================================
+[13:29:21] drop C1-C4                        m=14  kappa=  0.6937  half-life=  365.0d  ll=   200431.52  pinned=none        n_iters= 10  (59.5s)
+[13:30:12] drop C5-C12                       m=10  kappa=  0.6360  half-life=  398.1d  ll=   119695.69  pinned=none        n_iters= 11  (50.3s)
+[13:31:25] drop C13-C18                      m=12  kappa=  1.0545  half-life=  240.1d  ll=   155711.13  pinned=none        n_iters= 18  (73.0s)
+
+==========================================================================================
+SUB-PERIOD SPLITS (2 fits)
+==========================================================================================
+early: 1770 days (2010-01-04 .. 2016-12-30)   late: 1484 days (2017-01-03 .. 2022-11-21)
+[13:32:05] C1-C18, 2010-2016                 m=18  kappa=  0.7139  half-life=  354.6d  ll=   135554.75  pinned=none        n_iters= 14  (40.5s)
+[13:32:33] C1-C18, 2017-2022                 m=18  kappa=  0.8907  half-life=  284.2d  ll=    96229.55  pinned=none        n_iters= 11  (28.1s)
+
+==========================================================================================
+COLD-START SPOT CHECK (3 fits)
+==========================================================================================
+[13:33:58] C1-C18 baseline            [COLD] m=18  kappa=  0.7574  half-life=  334.3d  ll=   229642.92  pinned=none        n_iters= 15  (84.3s)
+[13:34:38] drop C5-C12                [COLD] m=10  kappa=  0.6360  half-life=  398.1d  ll=   119695.68  pinned=none        n_iters= 10  (40.7s)
+[13:36:34] drop C1                    [COLD] m=17  kappa=  0.7452  half-life=  339.8d  ll=   224857.42  pinned=none        n_iters= 17  (116.2s)
+
+total battery wall-clock: 2242.0s (37.4 min)
+
+==========================================================================================
+BATTERY SUMMARY
+==========================================================================================
+baseline (C1-C18, full):        kappa=0.7574
+leave-one-out spread (18 fits): 0.0682  range [0.7268, 0.7950]
+block-out kappas: drop C1-C4=0.6937  drop C5-C12=0.6360  drop C13-C18=1.0545
+sub-period kappas: C1-C18, 2010-2016=0.7139  C1-C18, 2017-2022=0.8907
+
+largest kappa movers under leave-one-out (top 5 by |delta| from baseline):
+  drop C14       kappa=  0.7950  delta= +0.0376
+  drop C15       kappa=  0.7905  delta= +0.0331
+  drop C18       kappa=  0.7904  delta= +0.0330
+  drop C7        kappa=  0.7268  delta= -0.0306
+  drop C16       kappa=  0.7851  delta= +0.0278
+
+cold vs. warm basin-trapping check:
+  C1-C18 baseline       cold: kappa=  0.7574 ll=   229642.92   warm: kappa=  0.7574 ll=   229642.91   delta_kappa=+0.0000  delta_ll=+0.013
+  drop C5-C12           cold: kappa=  0.6360 ll=   119695.68   warm: kappa=  0.6360 ll=   119695.69   delta_kappa=-0.0000  delta_ll=-0.006
+  drop C1               cold: kappa=  0.7452 ll=   224857.42   warm: kappa=  0.7452 ll=   224857.40   delta_kappa=+0.0000  delta_ll=+0.018
+
+pinned contracts across all 26 fits: NONE -- gate holds throughout
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_perturbation_battery.json

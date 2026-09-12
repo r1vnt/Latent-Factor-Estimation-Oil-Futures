@@ -1,0 +1,20 @@
+[12:32:20] free s_i done (133.0s)  kappa=1.2192  ll=94914.12
+
+[12:32:20] quadratic warm start: a=-3.2214  b=-19.5791  c=20.7521
+[12:34:23] quadratic done (122.4s, 30 EM iters)  kappa=1.2445  ll=94834.56  a=-2.9967  b=-20.2784  c=23.0955
+  s_quad(bp), day 0: [215.3958, 52.1532, 19.4983, 9.7514, 6.3678, 5.9129, 7.3629, 13.6432]
+  pinned at floor: none  (gate expectation: zero)
+
+==============================================================================
+LR TESTS, C1-C8
+==============================================================================
+quadratic vs. free s_i:   ll_free=94914.1194  ll_quad=94834.5561  LR=159.1267  df=5  p=1.519e-32  REJECTED at 5%
+quadratic vs. linear:     ll_linear=90568.1124  ll_quad=94834.5561  LR=8532.8873  df=1  p=0  quadratic term justified at 5%
+
+==============================================================================
+GATE VERDICT
+==============================================================================
+quadratic curve pinned: none
+PARTIAL -- zero pinned contracts, but still statistically rejected vs. free s_i. The free vector's shape may need more flexibility than a hump (or C7's near-floor value is itself not a smooth-curve-representable feature); flag before scaling to C1-C18 rather than silently proceeding.
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c8_quadratic_vs_free.json

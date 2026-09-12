@@ -1,0 +1,17 @@
+[01:17:35] deep panel (C1-C8): (3254, 8), floor=1.4286bp
+[01:17:35] starting Gaussian pre-fit (warm start kappa0=1.5015, default floor)...
+[01:17:57] Gaussian done (22.0s)  kappa=1.5015  ll=102788.68
+  s_gauss(bp): [320.1996, 162.1092, 52.8499, 16.2495, 1.4286, 5.4696, 1.4286, 10.0361]
+[01:17:57] starting Student-t EM (n_outer<=30)...
+[01:19:40] Student-t EM done (103.5s, 17 outer iters). total=125.5s
+kappa=1.2192  half-life=207.7d
+s_student_t(bp): [147.2521, 78.2217, 21.5895, 2.6351, 8.6688, 8.4366, 1.4289, 9.4897]
+
+======================================================================
+GATE VERDICT
+======================================================================
+floor = 1.4286bp
+positions still pinned at floor after Student-t EM: ['C7']
+STILL PINNED -> do runbook step 2 (smooth measurement curve) first.
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c8_student_t_svector.json

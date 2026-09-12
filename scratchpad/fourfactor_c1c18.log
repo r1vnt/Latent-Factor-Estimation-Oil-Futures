@@ -1,0 +1,49 @@
+panel: 3254 dates x 18 contracts
+three-factor baseline: k1=1.8871  k2=0.3889  ll=261977.28
+ACF-implied kappa_fast warm start: 12.3214
+[11:24:42] Gaussian done (62.4s)  ll=277028.79
+  k1=8.1183  k2=2.0310  k3=0.4419
+[11:31:40] Student-t EM done (418.8s, 18/200 iters, CONVERGED)  total=481.1s
+k1=5.4158 (half-life 46.7d)
+k2=2.1436 (half-life 118.1d)
+k3=0.5096 (half-life 496.8d)
+sigma1=0.1795  sigma2=0.2105  sigma3=0.2987  sigma_xi=0.2002
+rho1x=-0.0795  rho2x=0.2608  rho3x=0.0920  (sum of squares=0.0828, must be <=1)
+curve: a=-4.5824  b=-7.5031  c=4.2066
+s(bp), day 0: [74.3214, 41.161, 25.4304, 16.5667, 10.9923, 7.7766, 6.0729, 4.7993, 4.1157, 3.7417, 3.6054, 3.6852, 3.9717, 4.585, 5.5232, 7.0156, 9.7029, 14.0383]
+pinned: none
+ll = 274533.77  (three-factor was 261977.28, gain=12556.49)
+
+==========================================================================================
+REDUNDANCY CHECKS
+==========================================================================================
+k1/k2 = 2.53  separated
+k2/k3 = 4.21  separated
+
+==========================================================================================
+LJUNG-BOX, four-factor standardised innovations
+==========================================================================================
+  C 1: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 2: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 3: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 4: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 5: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 6: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 7: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 8: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 9: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C10: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C11: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C12: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C13: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C14: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C15: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C16: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C17: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C18: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+
+significant (p<0.01) at lag 1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+significant (p<0.01) at lag 5: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+(three-factor: 18/18 at both lag 1 and lag 5)
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_fourfactor.json

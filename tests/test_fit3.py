@@ -1,0 +1,173 @@
+"""Tests for csr.pricing.fit3 -- the three-factor smooth-curve fitting loop.
+
+fit3.py has been relied on all session via ad hoc smoke-test scripts, not
+committed tests. This file is deliberately narrow: it locks in the
+pack3_smooth/unpack3_smooth round trip and the RV-extension nesting
+guarantee (Step 3 of the volatility-clustering follow-up: all new
+parameters at zero must reproduce the current fit to 1e-9), not a full
+re-test of the Gaussian/Student-t fitting loops themselves.
+"""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import numpy as np
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
+
+from csr.pricing.fit3 import (  # noqa: E402
+    _neg_loglik3,
+    pack3_smooth,
+    unpack3_smooth,
+    weighted_filter3,
+)
+from csr.pricing.threefactor import ThreeFactorParams  # noqa: E402
+
+
+def _p3():
+    return ThreeFactorParams(kappa1=1.9, kappa2=0.4, sigma1=0.22, sigma2=0.31,
+                             sigma_xi=0.2, rho1x=0.1, rho2x=0.15,
+                             mu_xi=0.0, mu_xi_star=0.01, lambda1=0.05, lambda2=0.02,
+                             gamma_v=0.3)
+
+
+def _panel(seed=0, n=200, m=6):
+    rng = np.random.default_rng(seed)
+    tau = np.tile(np.linspace(0.08, 1.0, m), (n, 1)) + rng.normal(0, 0.001, (n, m))
+    log_f = 70.0 + np.cumsum(rng.normal(0, 0.01, n)).reshape(-1, 1) + rng.normal(0, 0.001, (n, m))
+    return log_f, np.abs(tau)
+
+
+# ------------------------------------------------------- pack/unpack ------
+def test_pack_unpack_roundtrip_without_rv_extension():
+    p = _p3()
+    theta = pack3_smooth(p, a=-4.0, b=-2.0, c=1.5, quadratic=True)
+    p2, smooth2 = unpack3_smooth(theta, quadratic=True, rv_extension=False)
+    assert p2.kappa1 == pytest.approx(p.kappa1)
+    assert p2.kappa2 == pytest.approx(p.kappa2)
+    assert p2.gamma_v == pytest.approx(p.gamma_v)
+    assert smooth2.a == pytest.approx(-4.0)
+    assert smooth2.b == pytest.approx(-2.0)
+    assert smooth2.c == pytest.approx(1.5)
+    assert smooth2.eta_v == 0.0 and smooth2.lambda_v == 0.0
+
+
+def test_pack_unpack_roundtrip_with_rv_extension():
+    p = _p3()
+    theta = pack3_smooth(p, a=-4.0, b=-2.0, c=1.5, quadratic=True,
+                         eta_v=2.5, lambda_v=1.3, rv_extension=True)
+    p2, smooth2 = unpack3_smooth(theta, quadratic=True, rv_extension=True)
+    assert smooth2.eta_v == pytest.approx(2.5)
+    assert smooth2.lambda_v == pytest.approx(1.3)
+    assert p2.kappa1 == pytest.approx(p.kappa1)
+
+
+def test_theta_length_grows_by_exactly_two_for_the_rv_extension():
+    p = _p3()
+    theta_off = pack3_smooth(p, a=-4.0, b=-2.0, c=1.5, quadratic=True, rv_extension=False)
+    theta_on = pack3_smooth(p, a=-4.0, b=-2.0, c=1.5, quadratic=True,
+                            eta_v=1.0, lambda_v=1.0, rv_extension=True)
+    assert len(theta_on) == len(theta_off) + 2
+
+
+# ------------------------------------------- Step 3: nesting at zero ------
+def test_rv_extension_at_zero_reproduces_the_baseline_likelihood_exactly():
+    """The core Step-3 requirement: eta_v = lambda_v = 0 (with rv_extension
+    True, an rv_lag series actually supplied) must give the IDENTICAL
+    negative log-likelihood as rv_extension=False entirely -- not just
+    approximately, since exp(0 * anything) = 1 is an exact identity, and
+    a numerical mismatch here would mean the wiring, not the maths, is
+    wrong. gamma_v=0 here specifically, so that supplying rv_lag to one
+    branch and not the other (True baseline: no RV signal anywhere) can't
+    also activate the Q-side channel asymmetrically and contaminate this
+    H-side-only check -- that interaction is covered separately below."""
+    log_f, tau = _panel()
+    p = _p3().replace(gamma_v=0.0)
+    rng = np.random.default_rng(1)
+    rv_lag = rng.normal(0, 1, len(log_f))
+
+    theta_off = pack3_smooth(p, a=-4.0, b=-2.0, c=1.0, quadratic=True, rv_extension=False)
+    theta_on = pack3_smooth(p, a=-4.0, b=-2.0, c=1.0, quadratic=True,
+                            eta_v=0.0, lambda_v=0.0, rv_extension=True)
+
+    nll_off = _neg_loglik3(theta_off, log_f, tau, 1 / 252, True, rv_lag=None, rv_extension=False)
+    nll_on = _neg_loglik3(theta_on, log_f, tau, 1 / 252, True, rv_lag=rv_lag, rv_extension=True)
+    assert nll_off == pytest.approx(nll_on, abs=1e-9)
+
+
+def test_rv_extension_at_zero_reproduces_the_baseline_even_with_gamma_v_active():
+    """Same guarantee, with the Q-side gamma_v channel ALSO active and fed
+    the same rv_lag -- the two channels (Q via gamma_v, H via eta_v) must
+    nest independently; eta_v/lambda_v=0 must not depend on whatever
+    gamma_v is doing."""
+    log_f, tau = _panel(seed=2)
+    p = _p3()   # gamma_v = 0.3, nonzero
+    rng = np.random.default_rng(3)
+    rv_lag = rng.normal(0, 1, len(log_f))
+
+    theta_off = pack3_smooth(p, a=-4.0, b=-2.0, quadratic=False, rv_extension=False)
+    theta_on = pack3_smooth(p, a=-4.0, b=-2.0, quadratic=False,
+                            eta_v=0.0, lambda_v=0.0, rv_extension=True)
+
+    nll_off = _neg_loglik3(theta_off, log_f, tau, 1 / 252, False, rv_lag=rv_lag, rv_extension=False)
+    nll_on = _neg_loglik3(theta_on, log_f, tau, 1 / 252, False, rv_lag=rv_lag, rv_extension=True)
+    assert nll_off == pytest.approx(nll_on, abs=1e-9)
+
+
+def test_nonzero_eta_v_actually_changes_the_likelihood():
+    """Guard against the extension being vacuous: a nonzero eta_v with a
+    real rv_lag series must change the likelihood relative to eta_v=0."""
+    log_f, tau = _panel(seed=4)
+    p = _p3()
+    rng = np.random.default_rng(5)
+    rv_lag = rng.normal(0, 1, len(log_f))
+
+    theta_zero = pack3_smooth(p, a=-4.0, b=-2.0, quadratic=False,
+                              eta_v=0.0, lambda_v=1.0, rv_extension=True)
+    theta_nonzero = pack3_smooth(p, a=-4.0, b=-2.0, quadratic=False,
+                                 eta_v=2.0, lambda_v=1.0, rv_extension=True)
+
+    nll_zero = _neg_loglik3(theta_zero, log_f, tau, 1 / 252, False, rv_lag=rv_lag, rv_extension=True)
+    nll_nonzero = _neg_loglik3(theta_nonzero, log_f, tau, 1 / 252, False, rv_lag=rv_lag, rv_extension=True)
+    assert abs(nll_zero - nll_nonzero) > 1e-6
+
+
+# ------------------------------------------- Fix 4: bounded, not clipped --
+def test_gamma_v_and_eta_v_are_bounded_by_construction_not_by_clipping():
+    """No finite theta value can push gamma_v or eta_v outside their
+    economic bounds -- tanh saturates, it doesn't overflow, so there is
+    no plateau for an optimiser to run into and park on. This is the
+    actual fix for the runaway multi-start explore/44 hit: the ±20
+    exponent clip was a numerical guard standing in for an economic
+    constraint, and bounding the PARAMETER itself removes that plateau
+    rather than relocating it."""
+    from csr.pricing.fit3 import ETA_V_MAX, GAMMA_V_MAX
+
+    p = _p3().replace(gamma_v=2.9)   # near the bound already
+    for huge in (10.0, 100.0, 1e6):
+        theta = pack3_smooth(p, a=-4.0, b=-2.0, quadratic=False,
+                             eta_v=huge, lambda_v=1.0, rv_extension=True)
+        p_out, smooth_out = unpack3_smooth(theta, quadratic=False, rv_extension=True)
+        assert abs(smooth_out.eta_v) < ETA_V_MAX
+        assert abs(p_out.gamma_v) < GAMMA_V_MAX
+
+
+def test_binding_constraint_is_detectable_from_the_fitted_value():
+    """A caller must be able to tell 'estimate' from 'parked at the
+    bound' just from the returned value -- ratio to MAX close to 1 is
+    the tell the acceptance step checks for explicitly."""
+    from csr.pricing.fit3 import ETA_V_MAX
+
+    p = _p3()
+    theta_at_bound = pack3_smooth(p, a=-4.0, b=-2.0, quadratic=False,
+                                  eta_v=ETA_V_MAX * 0.999, lambda_v=1.0, rv_extension=True)
+    _, smooth_at_bound = unpack3_smooth(theta_at_bound, quadratic=False, rv_extension=True)
+    assert abs(smooth_at_bound.eta_v) / ETA_V_MAX > 0.95
+
+    theta_interior = pack3_smooth(p, a=-4.0, b=-2.0, quadratic=False,
+                                  eta_v=0.5, lambda_v=1.0, rv_extension=True)
+    _, smooth_interior = unpack3_smooth(theta_interior, quadratic=False, rv_extension=True)
+    assert abs(smooth_interior.eta_v) / ETA_V_MAX < 0.5

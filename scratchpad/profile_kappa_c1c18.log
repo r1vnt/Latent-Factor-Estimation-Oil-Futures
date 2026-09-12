@@ -1,0 +1,36 @@
+loaded C1-C18 fit: kappa_hat=0.7574  a=-2.7130  b=-9.9821  c=5.5511
+[12:52:54] kappa= 0.2000  ll= 218248.8455  success=False  nit=  29  (5.3s)
+[12:53:02] kappa= 0.3000  ll= 221574.0012  success=False  nit=  37  (8.2s)
+[12:53:09] kappa= 0.4000  ll= 224653.1490  success=False  nit=  43  (6.8s)
+[12:53:28] kappa= 0.5000  ll= 227290.3797  success=False  nit=  62  (18.9s)
+[12:53:33] kappa= 0.6000  ll= 229276.7042  success=False  nit=  22  (5.6s)
+[12:53:43] kappa= 0.7000  ll= 230446.0607  success=False  nit=  42  (9.9s)
+[12:53:49] kappa= 0.7574  ll= 230715.2666  success=False  nit=  26  (5.8s)
+[12:53:54] kappa= 0.8000  ll= 230724.9621  success=False  nit=  21  (4.7s)
+[12:54:05] kappa= 0.9000  ll= 230143.5957  success=False  nit=  28  (11.5s)
+[12:54:14] kappa= 1.0000  ll= 228809.3076  success=False  nit=  41  (8.5s)
+[12:54:19] kappa= 1.1000  ll= 226867.3142  success=False  nit=  31  (4.8s)
+[12:54:29] kappa= 1.2000  ll= 224468.3963  success=False  nit=  34  (10.6s)
+[12:54:36] kappa= 1.2445  ll= 223290.6106  success=False  nit=  22  (6.7s)
+[12:54:45] kappa= 1.4000  ll= 218824.7259  success=False  nit=  29  (8.8s)
+[12:54:52] kappa= 1.6000  ll= 212696.9864  success=False  nit=  36  (6.8s)
+[12:55:04] kappa= 1.8000  ll= 206564.4184  success=False  nit=  34  (12.4s)
+[12:55:16] kappa= 2.0000  ll= 200670.2562  success=False  nit=  63  (12.3s)
+[12:55:23] kappa= 2.5000  ll= 187504.4829  success=False  nit=  56  (7.0s)
+[12:55:31] kappa= 3.0000  ll= 176605.1270  success=False  nit=  66  (8.1s)
+
+total profile time: 162.6s
+
+==============================================================================
+PROFILE SHAPE
+==============================================================================
+argmax: kappa=0.8000  ll=230724.9621
+range across grid: 54119.8351 nats
+kappa values within ~2 ll-units of the max (rough 95% band): [0.8000, 0.8000]
+
+C1-C8 point estimate  (1.2445): ll at nearest grid point (1.2445) = 223290.6106  (delta from max: -7434.3515)
+C1-C18 point estimate (0.7574): ll at nearest grid point (0.7574) = 230715.2666  (delta from max: -9.6955)
+
+VERDICT: SHARP -- the C1-C8 value is well outside the ~2 ll-unit band around the C1-C18 optimum. The drift looks like a real shift in the best-supported kappa, not just flat-profile noise.
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_kappa_profile.json

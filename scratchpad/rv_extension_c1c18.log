@@ -1,0 +1,31 @@
+panel: 3254 dates x 18 contracts
+rv_lag: mean=0.0210  valid days=3212/3254
+baseline: k1=1.8871  k2=0.3889  ll=261977.28
+
+==========================================================================================
+MULTI-START (Gaussian stage), eta_v x lambda_v
+==========================================================================================
+[18:44:09] eta_v0=0.0  lambda_v0=0.5  ll=   266143.35  k1=2.2466  k2=0.3889  gamma_v=23.9736  eta_v=22.9687  lambda_v=5.4083  (63.4s)
+[18:45:15] eta_v0=0.0  lambda_v0=2.0  ll=   266143.35  k1=2.2466  k2=0.3889  gamma_v=23.9735  eta_v=22.9688  lambda_v=5.4084  (65.7s)
+[18:46:22] eta_v0=0.0  lambda_v0=6.0  ll=   266143.35  k1=2.2466  k2=0.3889  gamma_v=23.9734  eta_v=22.9687  lambda_v=5.4083  (66.7s)
+[18:47:19] eta_v0=1.0  lambda_v0=0.5  ll=   266143.35  k1=2.2466  k2=0.3889  gamma_v=23.9734  eta_v=22.9688  lambda_v=5.4083  (57.1s)
+[18:48:23] eta_v0=1.0  lambda_v0=2.0  ll=   266143.35  k1=2.2466  k2=0.3889  gamma_v=23.9734  eta_v=22.9689  lambda_v=5.4084  (64.3s)
+[18:49:11] eta_v0=1.0  lambda_v0=6.0  ll=   266143.35  k1=2.2466  k2=0.3889  gamma_v=23.9736  eta_v=22.9688  lambda_v=5.4083  (47.4s)
+[18:49:54] eta_v0=3.0  lambda_v0=0.5  ll=   266143.35  k1=2.2466  k2=0.3889  gamma_v=23.9735  eta_v=22.9685  lambda_v=5.4082  (43.0s)
+[18:50:45] eta_v0=3.0  lambda_v0=2.0  ll=   266143.35  k1=2.2466  k2=0.3889  gamma_v=23.9735  eta_v=22.9688  lambda_v=5.4083  (51.0s)
+[18:51:34] eta_v0=3.0  lambda_v0=6.0  ll=   266143.35  k1=2.2466  k2=0.3889  gamma_v=23.9736  eta_v=22.9689  lambda_v=5.4083  (49.4s)
+
+best start: eta_v0=1.0  lambda_v0=6.0  ll=266143.35
+ll spread across starts: 0.0000
+
+==========================================================================================
+STUDENT-T EM
+==========================================================================================
+[19:02:53] done (678.9s, 47/200 EM iters, CONVERGED)
+kappa1=1.8844  kappa2=0.4318
+gamma_v=26.8658  eta_v=49.8083  lambda_v=2.7649
+curve: a=-4.2893  b=-8.0467  c=4.5237
+ll = 260114.02  (baseline three-factor ll was 261977.28, gain=-1863.26)
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_rv_extension.json
+saved rv_lag series to data/c1c18_rv_lag20.npy for downstream acceptance checks

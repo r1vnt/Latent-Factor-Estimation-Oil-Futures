@@ -134,3 +134,58 @@ def test_parameter_count_collapses():
         smooth = 6 + 2
         assert smooth < free
     assert 6 + 2 == 8 and 6 + 18 == 24     # C1-C18: 24 -> 8
+
+
+# --------------------------------------- eta_v / lambda_v (RV term) --------
+def test_eta_v_zero_is_a_noop_regardless_of_rv_lag():
+    p0 = SmoothMeasParams(a=np.log(5e-4), b=-1.0, eta_v=0.0, lambda_v=2.0)
+    rv = np.array([0.5, -0.3, 1.2, 0.0, 2.0])
+    tau = np.tile(TAU8, (5, 1))
+    H0 = hdiag_from_tau(p0, tau, rv_lag=None)
+    H1 = hdiag_from_tau(p0, tau, rv_lag=rv)
+    np.testing.assert_array_equal(H0, H1)
+
+
+def test_rv_term_is_front_concentrated():
+    """The RV inflation must be strongest at the shortest maturity and
+    decay toward the back, by construction (e^{-lambda_v*tau}) -- not a
+    flat multiplier across the panel."""
+    p = SmoothMeasParams(a=np.log(5e-4), b=-1.0, eta_v=2.0, lambda_v=3.0)
+    tau = TAU8.reshape(1, -1)
+    rv = np.array([1.0])
+    H_rv = hdiag_from_tau(p, tau, rv_lag=rv)[0]
+    H0 = hdiag_from_tau(p, tau, rv_lag=None)[0]
+    ratio = H_rv / H0   # exp(eta_v * exp(-lambda_v*tau) * rv), must decay with tau
+    assert np.all(np.diff(ratio) < 0), "RV inflation must shrink with maturity"
+    assert ratio[0] > 1.0   # front actually inflated when RV > 0
+
+
+def test_rv_term_positive_rv_inflates_negative_deflates():
+    p = SmoothMeasParams(a=np.log(5e-4), eta_v=1.5, lambda_v=1.0)
+    tau = np.array([[0.1]])
+    H_pos = hdiag_from_tau(p, tau, rv_lag=np.array([1.0]))
+    H_neg = hdiag_from_tau(p, tau, rv_lag=np.array([-1.0]))
+    H0 = hdiag_from_tau(p, tau, rv_lag=np.array([0.0]))
+    assert H_pos[0, 0] > H0[0, 0] > H_neg[0, 0]
+
+
+def test_rv_term_separable_from_roll_term():
+    """Both extra terms active at once must multiply, not override each
+    other -- confirms the two exponents are literally added inside one
+    exp(), matching the roll term's own established convention."""
+    p = SmoothMeasParams(a=np.log(5e-4), eta_v=1.0, lambda_v=2.0)
+    tau = np.array([[0.2, 0.4]])
+    roll = np.array([1.0])
+    rv = np.array([0.5])
+    H_both = hdiag_from_tau(p, tau, eta_roll=0.7, roll=roll, rv_lag=rv)
+    H_roll_only = hdiag_from_tau(p, tau, eta_roll=0.7, roll=roll, rv_lag=None)
+    H_rv_only = hdiag_from_tau(p, tau, eta_roll=0.0, roll=None, rv_lag=rv)
+    H_neither = hdiag_from_tau(p, tau, rv_lag=None)
+    np.testing.assert_allclose(H_both, H_neither * (H_roll_only / H_neither) * (H_rv_only / H_neither))
+
+
+def test_n_params_counts_the_rv_extension():
+    assert SmoothMeasParams(a=0.0).n_params() == 1
+    assert SmoothMeasParams(a=0.0, b=-1.0).n_params() == 2
+    assert SmoothMeasParams(a=0.0, b=-1.0, c=1.0, quadratic=True).n_params() == 3
+    assert SmoothMeasParams(a=0.0, b=-1.0, eta_v=1.0, lambda_v=2.0).n_params() == 4

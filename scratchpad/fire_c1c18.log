@@ -1,0 +1,51 @@
+raw panel, 2010+, C1-C18: 3254 dates x 18 positions, 2010-01-04 .. 2022-11-21
+non-positive raw cells: 1
+  2020-04-20  C1  -37.63
+Panel: 3254 dates x 18 contracts (58572 cells)
+  missing/excluded: 3278 (5.60%)
+  low_price: 0 cells on 0 dates
+  stale: 0 cells on 0 dates
+  outlier_return: 106 cells on 16 dates
+  bad_price: 19 cells on 3 dates
+assembled: 3254 dates x 18 contracts, 2010-01-04 .. 2022-11-21
+Rule 1 check: log_f at the flagged cell = nan  (PASS -- NaN, not floored)
+
+======================================================================
+QC GATES
+======================================================================
+1. tau strictly increasing, every row: PASS
+2. worst stale-run column: 0.00% of dates
+3. columns clearing 95% coverage: 8/18
+   CL9: 0.9474  FAIL
+   CL10: 0.9413  FAIL
+   CL11: 0.9345  FAIL
+   CL12: 0.9281  FAIL
+   CL13: 0.9213  FAIL
+   CL14: 0.9146  FAIL
+   CL15: 0.9081  FAIL
+   CL16: 0.9017  FAIL
+   CL17: 0.8946  FAIL
+   CL18: 0.8888  FAIL
+   NOTE: not all 18 columns clear 95% -- proceeding with all 18 anyway (smooth curve has no per-contract free parameter to break on a thin column the way the free vector would); flagged, not hidden.
+4. non-positive settlements: 1 found, confirmed NaN in log_f
+5. dates retained: 3254 in, 3254 out
+
+======================================================================
+SMOOTH QUADRATIC FIT, C1-C18
+======================================================================
+[12:48:59] Gaussian smooth done (18.7s)  kappa=0.7812  ll=230740.39
+  curve: a=-2.5080  b=-9.8353  c=5.2855
+[12:50:35] Student-t smooth done (96.5s, 14/200 EM iters, CONVERGED)  total=115.2s
+kappa=0.7574  half-life=334.3d
+curve: a=-2.7130  b=-9.9821  c=5.5511
+s(bp), day 0: [433.6154, 197.4167, 103.9004, 58.6437, 33.8894, 21.3134, 15.2856, 11.1221, 9.0195, 7.9005, 7.4698, 7.6394, 8.3788, 10.0553, 12.773, 17.4006, 26.5058, 42.8636]
+pinned at floor: none  (gate expectation: zero)
+
+======================================================================
+STANDING DIAGNOSTIC
+======================================================================
+PASS -- zero pinned contracts under the smooth curve.
+
+kappa comparison: C1-C8 quadratic = 1.2445  ->  C1-C18 quadratic = 0.7574  (delta = -0.4871)
+
+saved panel arrays to data/deep_panel_c18_{log_f,tau,dates}, fit result to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_smooth_quadratic.json

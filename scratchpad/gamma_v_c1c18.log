@@ -1,0 +1,37 @@
+panel: 3254 dates x 18 contracts
+RV series: 3242/3254 valid days (first 12 days are NaN warm-up, filled with 0 -- inert since gamma_v's exp(gamma_v*0)=1 there, a no-op, not a fabricated value)
+Gaussian done  ll=265830.75  gamma_v=0.7584  k1=2.2444  k2=0.3856
+Student-t EM done (28/200 iters, CONVERGED)
+kappa1=1.9920  kappa2=0.4149  gamma_v=0.7574
+ll = 263892.74  (three-factor without gamma_v was 261977.28, gain=1915.46)
+
+==========================================================================================
+LJUNG-BOX ON SQUARED INNOVATIONS, gamma_v fit
+==========================================================================================
+  C 1: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 2: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 3: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 4: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 5: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 6: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 7: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 8: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 9: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C10: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C11: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C12: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C13: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C14: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C15: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C16: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C17: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C18: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+
+significant (p<0.01) at lag 1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]  (before gamma_v: all 18)
+
+==========================================================================================
+VERDICT
+==========================================================================================
+gamma_v does NOT absorb the clustering -- a single common front-contract-RV-driven scalar on (chi1, chi2)'s process noise is not the right functional form. The clustering is real (explore/35-36) but this specific channel, this specific proxy, doesn't reach it.
+
+saved to results/c1c18_gamma_v.json

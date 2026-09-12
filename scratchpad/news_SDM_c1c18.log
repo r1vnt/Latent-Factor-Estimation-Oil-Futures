@@ -1,0 +1,17 @@
+[12:35:52] fitting SDM  n_base=15  p_feat=5  theta_len=40
+[12:53:16] SDM done (1043.1s, 6/200 EM iters, CONVERGED)
+kappa1=2.2281  kappa2=0.5322  ll=-15457.23
+B (rows=chi1,chi2; cols=['sent_mean', 'theme_supply_disruption', 'theme_opec_policy', 'theme_geopolitics', 'theme_demand']):
+[[-0.00476  0.00647  0.00135  0.00398  0.00025]
+ [-0.0041  -0.00518 -0.00735 -0.00216  0.00804]]
+G (rows=['sent_mean', 'theme_supply_disruption', 'theme_opec_policy', 'theme_geopolitics', 'theme_demand']; cols=chi1,chi2):
+[[ 56.04083  26.8384 ]
+ [-58.958    21.93625]
+ [-21.99984  35.58421]
+ [-50.733    10.66112]
+ [-10.60076 -35.90847]]
+a_n: [-0.00466 -0.00411 -0.02708  0.03447 -0.02344]
+
+LR vs S0: ll_S0=261977.05  ll_SDM=-15457.23  LR=-554868.55  df=25  p=nan  (LR<0!)
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_news_SDM.json

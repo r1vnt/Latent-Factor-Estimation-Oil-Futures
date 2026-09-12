@@ -1,0 +1,15 @@
+shock trajectory: W shape (3254, 2), std per column [0.012986 0.01834 ]
+
+WLS-approx real LR: 58.89  (df=10)  n_obs=9790  vs. joint-EM LR=59.09 -- close, approximation validated
+
+placebo LR: mean=13.65  median=12.34  p95=27.54  p99=36.14  max=64.99
+
+REAL LR = 58.89
+empirical placebo p-value (fraction of 1000 shuffles >= real LR): 0.0010
+
+==============================================================================
+VERDICT
+==============================================================================
+Real LR exceeds the shuffled-news null -- the measurement result survives the placebo. Genuine same-day correlation, not just generic persistence.
+
+saved to results/c1c18_news_placebo.json

@@ -1,0 +1,59 @@
+panel: 3254 dates x 18 contracts
+baseline: k1=1.8871  k2=0.3889  ll=261977.28
+
+==========================================================================================
+BLOCK-OUTS (3 fits)
+==========================================================================================
+[15:26:45] drop C1-C4                        m=14  k1= 1.9286  k2= 0.4407  ratio= 4.38  ll=   225921.74  pinned=none        n_iters= 33  (292.0s)
+[15:30:37] drop C5-C12                       m=10  k1= 2.0165  k2= 0.4591  ratio= 4.39  ll=   128436.75  pinned=none        n_iters= 39  (232.0s)
+[15:33:50] drop C13-C18                      m=12  k1= 2.6599  k2= 0.5052  ratio= 5.26  ll=   173655.87  pinned=none        n_iters= 31  (193.5s)
+
+==========================================================================================
+SUB-PERIOD SPLITS (2 fits)
+==========================================================================================
+[15:36:14] C1-C18, 2010-2016                 m=18  k1= 1.9479  k2= 0.2210  ratio= 8.81  ll=   154485.08  pinned=none        n_iters= 27  (144.3s)
+[15:38:00] C1-C18, 2017-2022                 m=18  k1= 2.0415  k2= 0.5371  ratio= 3.80  ll=   111870.20  pinned=none        n_iters= 23  (105.6s)
+
+==========================================================================================
+COLD-START SPOT CHECK (3 fits)
+==========================================================================================
+[15:42:00] C1-C18 baseline            [COLD] m=18  k1= 1.8871  k2= 0.3889  ratio= 4.85  ll=   261976.77  pinned=none        n_iters= 20  (239.9s)
+[15:45:26] drop C5-C12                [COLD] m=10  k1= 2.0165  k2= 0.4591  ratio= 4.39  ll=   128436.81  pinned=none        n_iters= 46  (206.2s)
+[15:48:58] drop C1                    [COLD] m=17  k1= 1.9437  k2= 0.3909  ratio= 4.97  ll=   257664.60  pinned=none        n_iters= 21  (211.5s)
+
+total wall-clock (this resumed portion): 1625.0s (27.1 min)
+
+==========================================================================================
+BATTERY SUMMARY (19 reused + 7 fresh = 26 total)
+==========================================================================================
+baseline: k1=1.8871  k2=0.3889
+
+LOO spread (18 fits): k1 0.2989 [1.7700, 2.0689]   k2 0.0890 [0.3444, 0.4334]
+
+block-out spread (3 fits): k1 0.7314 [1.9286, 2.6599]   k2 0.0645 [0.4407, 0.5052]
+  drop C1-C4     k1=  1.9286  k2=  0.4407  ratio= 4.38
+  drop C5-C12    k1=  2.0165  k2=  0.4591  ratio= 4.39
+  drop C13-C18   k1=  2.6599  k2=  0.5052  ratio= 5.26
+
+ACCEPTANCE TEST (target: block-out spread < 0.15 for both k1 and k2, vs. the two-factor single-kappa spread of 0.42):
+  k1: 0.7314  FAIL
+  k2: 0.0645  PASS
+  OVERALL: FAIL -- sliding persists; report as a finding about WTI, do not override
+
+sub-period: k1 0.0936 [1.9479, 2.0415]   k2 0.3160 [0.2210, 0.5371]
+
+cold vs. warm basin-trapping check:
+  C1-C18 baseline       cold: k1= 1.8871 k2= 0.3889 ll=   261976.77   warm: k1= 1.8871 k2= 0.3889 ll=   261977.28   delta_ll=-0.514
+  drop C5-C12           cold: k1= 2.0165 k2= 0.4591 ll=   128436.81   warm: k1= 2.0165 k2= 0.4591 ll=   128436.75   delta_ll=+0.058
+  drop C1               cold: k1= 1.9437 k2= 0.3909 ll=   257664.60   warm: k1= 1.9437 k2= 0.3909 ll=   257664.60   delta_ll=+0.003
+
+pinned contracts across all 26 fits: NONE
+
+==========================================================================================
+FILTERED STATE CORRELATION vs. baseline (chi1, chi2) -- block-outs
+==========================================================================================
+  drop C1-C4      corr(chi1)=0.9587  corr(chi2)=0.9628
+  drop C5-C12     corr(chi1)=0.9131  corr(chi2)=0.8861
+  drop C13-C18    corr(chi1)=0.8905  corr(chi2)=0.9223
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_threefactor_battery.json

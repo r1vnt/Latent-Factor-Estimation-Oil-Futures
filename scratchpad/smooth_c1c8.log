@@ -1,0 +1,25 @@
+[12:23:52] deep panel (C1-C8): (3254, 8), floor=1.4286bp
+[12:26:00] free s_i   done (127.7s, 17 EM iters)  kappa=1.2192  ll=94914.12
+  s_free(bp): [147.2521, 78.2217, 21.5895, 2.6351, 8.6688, 8.4366, 1.4289, 9.4897]
+  pinned at floor: [7]  (gate expectation: <= k = 2 factors)
+
+[12:26:00] smooth warm start: a=-4.7402  b=-5.8414  (from fit_smooth_to_vector on the free s_i vector)
+[12:27:05] smooth done (65.1s, 20 EM iters)  kappa=1.1379  ll=90568.11  a=-4.0390  b=-6.8209
+  s_smooth(bp), day 0: [130.7875, 72.103, 41.9614, 24.4201, 13.4628, 7.422, 4.4379, 2.3813]
+  pinned at floor: none  (gate expectation: zero)
+  spread_bound (max/min achievable ratio at this b): 54.92  vs realised max/min = 54.92
+
+==============================================================================
+LR TEST (free s_i vs. smooth curve), C1-C8
+==============================================================================
+ll_free=94914.1194  ll_smooth=90568.1124  LR=8692.0141  df=6  p=0
+REJECTED at 5%: the smooth curve is a statistically worse fit than the free vector. Try quadratic=True (a hump is still degenerate-proof) before concluding smoothness itself is wrong.
+
+==============================================================================
+GATE VERDICT
+==============================================================================
+free s_i pinned:     [7]
+smooth curve pinned: none
+PASS -- smooth curve carries zero pinned contracts. Proceed to C1-C18.
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c8_smooth_vs_free.json

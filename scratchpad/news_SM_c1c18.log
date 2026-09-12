@@ -1,0 +1,14 @@
+[12:35:43] fitting SM  n_base=15  p_feat=5  theta_len=30
+[12:38:47] SM done (183.7s, 2/200 EM iters, CONVERGED)
+kappa1=1.1616  kappa2=0.0125  ll=-42081.41
+G (rows=['sent_mean', 'theme_supply_disruption', 'theme_opec_policy', 'theme_geopolitics', 'theme_demand']; cols=chi1,chi2):
+[[ 59.40808  15.75801]
+ [-17.14557 -36.32889]
+ [ 19.9386  -26.14712]
+ [-27.19281 -29.08337]
+ [-34.33133   7.66641]]
+a_n: [-0.00106  0.1267   0.11459  0.11961 -0.12136]
+
+LR vs S0: ll_S0=261977.05  ll_SM=-42081.41  LR=-608116.92  df=15  p=nan  (LR<0!)
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_news_SM.json

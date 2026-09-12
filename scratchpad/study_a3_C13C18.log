@@ -1,0 +1,62 @@
+BLOCK=C13-C18  m=12  kappa1=2.6599  kappa2=0.5052
+filtered: ll=173735.52  n_obs=37628
+
+label agreement: {'n_valid': 3230, 'n_disagree': 321, 'agreement_rate': 0.9006191950464396}
+
+==========================================================================================
+ENCOMPASSING BATTERY
+==========================================================================================
+
+realised_vol:
+  [realised_vol h=22 full] n=3208  b1(naive)=+0.0001 (p=0.8832)  b2(filt)=-0.0015 (p=0.0510)  R2=0.0121  [neither]
+  [realised_vol h=66 full] n=3120  b1(naive)=+0.0019 (p=0.0527)  b2(filt)=-0.0015 (p=0.0775)  R2=0.0158  [neither]
+  [realised_vol h=132 full] n=2988  b1(naive)=+0.0025 (p=0.0067)  b2(filt)=-0.0017 (p=0.1459)  R2=0.0395  [b1_only]
+  [realised_vol h=252 full] n=2748  b1(naive)=+0.0022 (p=0.0087)  b2(filt)=-0.0011 (p=0.4535)  R2=0.0476  [b1_only]
+
+cross_maturity_spread_change:
+  [cross_maturity_spread_change h=22 full] n=3165  b1(naive)=-0.0007 (p=0.1171)  b2(filt)=+0.0001 (p=0.8752)  R2=0.0043  [neither]
+  [cross_maturity_spread_change h=66 full] n=3121  b1(naive)=-0.0023 (p=0.1703)  b2(filt)=-0.0012 (p=0.5745)  R2=0.0522  [neither]
+  [cross_maturity_spread_change h=132 full] n=3055  b1(naive)=-0.0023 (p=0.3659)  b2(filt)=-0.0036 (p=0.2076)  R2=0.1255  [neither]
+  [cross_maturity_spread_change h=252 full] n=2935  b1(naive)=-0.0054 (p=0.0004)  b2(filt)=-0.0022 (p=0.2617)  R2=0.1476  [b1_only]
+
+==========================================================================================
+IDENTIFYING-COUNT GATE (before any disagreement test)
+==========================================================================================
+h=  22  n_disagree= 321  n_runs= 62  n_independent_runs= 23  p_effect=0.6250  required_n(observed, restates effect)=125.6  required_n(@ref=0.65)=87.2  sufficient(disagree)=True  sufficient(indep_runs)=False
+    -> NOT RUN (insufficient identifying observations at this horizon)
+h=  66  n_disagree= 321  n_runs= 62  n_independent_runs= 12  p_effect=0.7562  required_n(observed, restates effect)=29.9  required_n(@ref=0.65)=87.2  sufficient(disagree)=True  sufficient(indep_runs)=False
+    -> NOT RUN (insufficient identifying observations at this horizon)
+h= 132  n_disagree= 321  n_runs= 62  n_independent_runs=  4  p_effect=0.6312  required_n(observed, restates effect)=113.9  required_n(@ref=0.65)=87.2  sufficient(disagree)=True  sufficient(indep_runs)=False
+    -> NOT RUN (insufficient identifying observations at this horizon)
+h= 252  n_disagree= 321  n_runs= 62  n_independent_runs=  2  p_effect=0.5434  required_n(observed, restates effect)=1041.4  required_n(@ref=0.65)=87.2  sufficient(disagree)=True  sufficient(indep_runs)=False
+    -> NOT RUN (insufficient identifying observations at this horizon)
+
+==========================================================================================
+CONFIDENCE SPLIT (filter-as-estimator)
+==========================================================================================
+h=  22  high_uncertainty: [cross_maturity_spread_change h=22 high_uncertainty] n=1583  b1(naive)=-0.0010 (p=0.0756)  b2(filt)=+0.0001 (p=0.8872)  R2=0.0083  [neither]
+          high_confidence:  [cross_maturity_spread_change h=22 high_confidence] n=1582  b1(naive)=-0.0004 (p=0.4255)  b2(filt)=+0.0000 (p=0.9525)  R2=0.0014  [neither]
+h=  66  high_uncertainty: [cross_maturity_spread_change h=66 high_uncertainty] n=1561  b1(naive)=-0.0026 (p=0.0903)  b2(filt)=-0.0013 (p=0.5350)  R2=0.0658  [neither]
+          high_confidence:  [cross_maturity_spread_change h=66 high_confidence] n=1560  b1(naive)=-0.0019 (p=0.3720)  b2(filt)=-0.0012 (p=0.6711)  R2=0.0408  [neither]
+h= 132  high_uncertainty: [cross_maturity_spread_change h=132 high_uncertainty] n=1528  b1(naive)=-0.0022 (p=0.4411)  b2(filt)=-0.0043 (p=0.2214)  R2=0.1187  [neither]
+          high_confidence:  [cross_maturity_spread_change h=132 high_confidence] n=1527  b1(naive)=-0.0027 (p=0.2865)  b2(filt)=-0.0028 (p=0.3320)  R2=0.1395  [neither]
+h= 252  high_uncertainty: [cross_maturity_spread_change h=252 high_uncertainty] n=1468  b1(naive)=-0.0060 (p=0.0000)  b2(filt)=-0.0025 (p=0.0737)  R2=0.1761  [b1_only]
+          high_confidence:  [cross_maturity_spread_change h=252 high_confidence] n=1467  b1(naive)=-0.0048 (p=0.0063)  b2(filt)=-0.0019 (p=0.1875)  R2=0.1233  [b1_only]
+
+==========================================================================================
+XI ENCOMPASSES LOG PRICE
+==========================================================================================
+  [xi_encompasses_log_price h=22 full] n=3230  b1(naive)=-0.0765 (p=0.3010)  b2(filt)=+0.0192 (p=0.7517)  R2=0.0314  [neither]
+  [xi_encompasses_log_price h=66 full] n=3186  b1(naive)=-0.3193 (p=0.0153)  b2(filt)=+0.1811 (p=0.2937)  R2=0.1151  [b1_only]
+  [xi_encompasses_log_price h=132 full] n=3120  b1(naive)=-0.4267 (p=0.0326)  b2(filt)=+0.2019 (p=0.4683)  R2=0.1503  [b1_only]
+  [xi_encompasses_log_price h=252 full] n=3000  b1(naive)=-0.8105 (p=0.0232)  b2(filt)=+0.4116 (p=0.3940)  R2=0.2784  [b1_only]
+
+==========================================================================================
+CHI1/CHI2 SPLIT ENCOMPASSES LOG PRICE
+==========================================================================================
+  [chi_split_vs_log_f1 h=22] n=3230  c(log_f1)=-0.0385(p=0.2265)  c(chi1)=-0.4086(p=0.0549)  c(chi2)=+0.0660(p=0.1762)  R2=0.0771  joint(chi1=chi2=0): stat=4.918 p=0.0855
+  [chi_split_vs_log_f1 h=66] n=3186  c(log_f1)=-0.1189(p=0.1620)  c(chi1)=-0.6609(p=0.0670)  c(chi2)=-0.0606(p=0.7042)  R2=0.1326  joint(chi1=chi2=0): stat=3.462 p=0.1771
+  [chi_split_vs_log_f1 h=132] n=3120  c(log_f1)=-0.2037(p=0.1610)  c(chi1)=-0.6694(p=0.1554)  c(chi2)=-0.1031(p=0.6925)  R2=0.1608  joint(chi1=chi2=0): stat=2.800 p=0.2465
+  [chi_split_vs_log_f1 h=252] n=3000  c(log_f1)=-0.4130(p=0.0648)  c(chi1)=-0.4859(p=0.4970)  c(chi2)=-0.3323(p=0.4954)  R2=0.2714  joint(chi1=chi2=0): stat=0.657 p=0.7200
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_study_a3_C13_C18.json

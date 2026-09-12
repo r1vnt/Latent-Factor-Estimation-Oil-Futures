@@ -1,0 +1,61 @@
+ll4 recomputed = 274533.77  (saved: 274533.77)
+
+==========================================================================================
+LJUNG-BOX ON SQUARED INNOVATIONS (volatility clustering)
+==========================================================================================
+  C 1: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 2: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 3: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 4: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 5: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 6: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 7: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 8: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 9: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C10: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C11: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C12: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C13: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C14: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C15: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C16: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C17: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C18: lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+
+significant (p<0.01) at lag 1: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+significant (p<0.01) at lag 5: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+
+==========================================================================================
+MEAN ACF: levels vs. squared, four-factor innovations
+==========================================================================================
+ lag    levels   squared
+   0    1.0000    1.0000
+   1    0.7682    0.6786
+   2    0.6768    0.5565
+   3    0.6361    0.5187
+   4    0.6213    0.5296
+   5    0.5918    0.4850
+   6    0.5561    0.4345
+   7    0.5286    0.4030
+   8    0.5014    0.3763
+   9    0.4831    0.3415
+  10    0.4521    0.3141
+  11    0.4172    0.2728
+  12    0.4015    0.2552
+  13    0.3959    0.2444
+  14    0.3801    0.2277
+  15    0.3520    0.2030
+  16    0.3265    0.1865
+  17    0.3058    0.1714
+  18    0.2887    0.1523
+  19    0.2825    0.1418
+  20    0.2741    0.1271
+
+==========================================================================================
+VERDICT
+==========================================================================================
+levels ACF at lag 1: 0.7682  (this is what 4 factors couldn't fix)
+squared ACF at lag 1: 0.6786
+VOLATILITY CLUSTERING PRESENT -- squared innovations are strongly autocorrelated too. A GARCH-type variance process (or the existing gamma/intensity scale_variances channel, driven by something with its own short-lag persistence) is a live candidate independent of adding more mean-reverting levels factors. This does not by itself prove the LEVEL autocorrelation is caused by volatility clustering, but a level effect that is actually driven by clustering (fat-tailed, clustered shocks correlate in levels via their magnitude even with zero true mean persistence) is a well-known confound of Ljung-Box.
+
+saved to results/c1c18_garch_check.json

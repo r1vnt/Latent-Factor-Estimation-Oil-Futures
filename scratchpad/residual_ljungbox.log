@@ -1,0 +1,64 @@
+panel: 3254 dates x 18 contracts
+
+==========================================================================================
+RESIDUAL SD CHECK
+==========================================================================================
+ll2=229642.91 (recomputed)  ll3=261977.28 (recomputed)  gain=32334.37 nats over 55294 obs
+
+raw residual SD:   two-factor=1.109985  three-factor=1.171786  ratio=1.0557  (SD reduction: -5.6%)
+raw residual RMSE: two-factor=1.110435  three-factor=1.171787  ratio=1.0553  (RMSE reduction: -5.5%)
+
+implied SD ratio from ll gain (per-obs): 0.5572  (quoted expectation: ~0.57, i.e. ~43% reduction)
+actual SD ratio (raw, unstandardised):    1.0557
+NOTE: raw SD mixes all 18 contracts' very different scales (front ~160bp vs deep ~4-8bp under either curve) -- a per-contract or Hdiag-standardised comparison is the fairer read; see below.
+
+per-contract residual SD (bp), two-factor vs three-factor:
+  C 1: 2F=8703.974bp  3F=12143.721bp  ratio=1.395
+  C 2: 2F=6972.676bp  3F=8508.128bp  ratio=1.220
+  C 3: 2F=5740.218bp  3F=13293.150bp  ratio=2.316
+  C 4: 2F=7638.529bp  3F=13620.900bp  ratio=1.783
+  C 5: 2F=8945.948bp  3F=10570.555bp  ratio=1.182
+  C 6: 2F=10508.951bp  3F=8489.387bp  ratio=0.808
+  C 7: 2F=11131.222bp  3F=9029.937bp  ratio=0.811
+  C 8: 2F=10743.914bp  3F=10358.103bp  ratio=0.964
+  C 9: 2F=9014.673bp  3F=11579.073bp  ratio=1.284
+  C10: 2F=7525.559bp  3F=13443.058bp  ratio=1.786
+  C11: 2F=9008.374bp  3F=13065.494bp  ratio=1.450
+  C12: 2F=11705.738bp  3F=11664.361bp  ratio=0.996
+  C13: 2F=14761.987bp  3F=11438.991bp  ratio=0.775
+  C14: 2F=16167.675bp  3F=11674.814bp  ratio=0.722
+  C15: 2F=15936.958bp  3F=12443.751bp  ratio=0.781
+  C16: 2F=14662.626bp  3F=12878.700bp  ratio=0.878
+  C17: 2F=12201.653bp  3F=12465.581bp  ratio=1.022
+  C18: 2F=9232.136bp  3F=11426.564bp  ratio=1.238
+
+==========================================================================================
+LJUNG-BOX, three-factor standardised innovations, per contract
+==========================================================================================
+  C 1 (n=3253):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 2 (n=3231):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 3 (n=3209):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 4 (n=3189):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 5 (n=3166):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 6 (n=3145):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 7 (n=3125):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 8 (n=3103):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C 9 (n=3083):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C10 (n=3063):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C11 (n=3041):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C12 (n=3020):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C13 (n=2998):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C14 (n=2976):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C15 (n=2955):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C16 (n=2934):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C17 (n=2911):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+  C18 (n=2892):  lag1:p=0.0000*  lag5:p=0.0000*  lag10:p=0.0000*  lag20:p=0.0000*
+
+==========================================================================================
+VERDICT
+==========================================================================================
+contracts significant (p<0.01) at lag 1:  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+contracts significant (p<0.01) at lag 5:  [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18]
+AUTOCORRELATED at short lags in 18/18 contracts -- consistent with a fast-decaying component (e.g. weekly inventory surprises) that has no state to load onto in the current two-class model. Consider a third, fast rate before finalising Phase 2's pre-registration.
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_residual_and_ljungbox.json

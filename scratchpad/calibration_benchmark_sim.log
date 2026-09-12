@@ -1,0 +1,18 @@
+two-factor simulated E[resid_std^2] over 5 reps: 1.6053  (range [1.5766, 1.6224])
+three-factor simulated E[resid_std^2] over 5 reps: 1.5799  (range [1.5592, 1.6030])
+
+==========================================================================================
+VERDICT
+==========================================================================================
+theoretical t5 target if weights are NOT folded into Hdiag: 1.6667
+theoretical Gaussian target if weights ARE folded in: 1.0000
+two-factor:   simulated benchmark=1.6053   real data resid_std^2=1.2491
+three-factor: simulated benchmark=1.5799   real data resid_std^2=1.3761
+
+using simulated benchmark ~1.593:
+  two-factor:   1.2491 vs 1.5926  -> under-dispersed by 21.6%
+  three-factor: 1.3761 vs 1.5926  -> under-dispersed by 13.6%
+
+THREE-FACTOR IS BETTER CALIBRATED (closer to the correctly-specified benchmark) -- the earlier 'overconfidence' reading was wrong; both models are under-dispersed relative to a genuine t5, and three-factor moves toward correct calibration, not away from it.
+
+saved to results/c1c18_calibration_benchmark_sim.json

@@ -1,0 +1,19 @@
+[12:38:49] free s_i done (129.3s)  kappa=1.2192  ll=94914.12
+[12:40:24] quadratic done (95.5s, 32/200 EM iters, CONVERGED (tol reached))  kappa=1.2445  ll=94834.56  a=-2.9967  b=-20.2784  c=23.0955
+  s_quad(bp), day 0: [215.3958, 52.1532, 19.4983, 9.7514, 6.3678, 5.9129, 7.3629, 13.6432]
+  pinned at floor: none
+
+==============================================================================
+LR TEST, C1-C8, quadratic vs. free s_i (this run)
+==============================================================================
+ll_free=94914.1194  ll_quad=94834.5579  LR=159.1230  df=5  p=1.522e-32  REJECTED at 5%
+vs. explore/21's uncapped-at-30 result: ll_quad was 94834.5561, LR was 159.1267 -- delta this run: d(ll_quad)=+0.0018  d(LR)=-0.0037
+
+==============================================================================
+GATE VERDICT
+==============================================================================
+EM convergence: reached tol
+pinned: none
+STILL REJECTED even converged -- the gap is real, not a stopping-early artifact. Decide separately whether it's economically material (concentrated at C7, the free fit's own still-floor-adjacent contract) before scaling to C1-C18.
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c8_quadratic_converged.json

@@ -1,0 +1,94 @@
+panel: 3254 dates x 18 contracts, 2010-01-04 .. 2022-11-21
+baseline: k1=1.8871  k2=0.3889  ll=261977.28
+
+==========================================================================================
+LEAVE-ONE-OUT (18 fits)
+==========================================================================================
+[14:11:09] drop C1                           m=17  k1= 1.9437  k2= 0.3909  ratio= 4.97  ll=   257664.60  pinned=none        n_iters= 24  (230.1s)
+[14:15:22] drop C2                           m=17  k1= 1.8652  k2= 0.3939  ratio= 4.74  ll=   254084.37  pinned=none        n_iters= 22  (252.5s)
+[14:20:00] drop C3                           m=17  k1= 1.8506  k2= 0.3822  ratio= 4.84  ll=   251555.96  pinned=none        n_iters= 29  (278.4s)
+[14:26:18] drop C4                           m=17  k1= 1.7934  k2= 0.3610  ratio= 4.97  ll=   249680.75  pinned=none        n_iters= 30  (378.2s)
+[14:30:52] drop C5                           m=17  k1= 1.7700  k2= 0.3493  ratio= 5.07  ll=   247528.02  pinned=none        n_iters= 31  (274.2s)
+[14:35:11] drop C6                           m=17  k1= 1.8668  k2= 0.3916  ratio= 4.77  ll=   244766.99  pinned=none        n_iters= 29  (258.5s)
+[14:37:48] drop C7                           m=17  k1= 1.9329  k2= 0.4201  ratio= 4.60  ll=   243570.36  pinned=none        n_iters= 19  (157.3s)
+[14:40:23] drop C8                           m=17  k1= 1.8707  k2= 0.3916  ratio= 4.78  ll=   243568.17  pinned=none        n_iters= 16  (155.3s)
+[14:43:19] drop C9                           m=17  k1= 1.7751  k2= 0.3444  ratio= 5.15  ll=   243750.73  pinned=none        n_iters= 15  (175.5s)
+[14:47:14] drop C10                          m=17  k1= 1.8546  k2= 0.3773  ratio= 4.92  ll=   242667.81  pinned=none        n_iters= 22  (234.7s)
+[14:50:35] drop C11                          m=17  k1= 1.9978  k2= 0.4328  ratio= 4.62  ll=   242456.17  pinned=none        n_iters= 16  (201.6s)
+[14:53:55] drop C12                          m=17  k1= 1.9701  k2= 0.4071  ratio= 4.84  ll=   243266.71  pinned=none        n_iters= 15  (199.6s)
+[14:57:11] drop C13                          m=17  k1= 1.8618  k2= 0.3689  ratio= 5.05  ll=   243627.49  pinned=none        n_iters= 13  (196.0s)
+[15:00:31] drop C14                          m=17  k1= 1.8453  k2= 0.3576  ratio= 5.16  ll=   243742.79  pinned=none        n_iters= 17  (200.1s)
+[15:03:32] drop C15                          m=17  k1= 2.0689  k2= 0.4334  ratio= 4.77  ll=   243919.99  pinned=none        n_iters= 12  (181.1s)
+[15:07:19] drop C16                          m=17  k1= 2.0425  k2= 0.4224  ratio= 4.84  ll=   245441.73  pinned=none        n_iters= 15  (226.6s)
+[15:09:31] drop C17                          m=17  k1= 1.9814  k2= 0.3953  ratio= 5.01  ll=   246766.82  pinned=none        n_iters= 11  (132.0s)
+[15:13:53] drop C18                          m=17  k1= 1.9558  k2= 0.3793  ratio= 5.16  ll=   248087.25  pinned=none        n_iters= 28  (262.1s)
+
+==========================================================================================
+BLOCK-OUTS (3 fits)
+==========================================================================================
+[15:18:24] drop C1-C4                        m=14  k1= 1.9286  k2= 0.4407  ratio= 4.38  ll=   225921.74  pinned=none        n_iters= 33  (271.4s)
+Traceback (most recent call last):
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\explore\28_threefactor_battery_c1c18.py", line 128, in <module>
+    r = fit_threefactor(panel.log_f[:, cols], panel.tau[:, cols], label)
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\explore\28_threefactor_battery_c1c18.py", line 85, in fit_threefactor
+    p_hat, smooth_hat, x_filt, resid, weight, n_iters, ll = fit3_student_t_smooth(
+                                                            ~~~~~~~~~~~~~~~~~~~~~^
+        log_f, tau, DT, STUDENT_T_DF, theta0_em, n_outer=200, quadratic=True)
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\src\csr\pricing\fit3.py", line 160, in fit3_student_t_smooth
+    res = minimize(_neg_loglik3_weighted, theta,
+                   args=(log_f, tau, dt, weight, quadratic),
+                   method="BFGS", options={"maxiter": 300})
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\.venv\Lib\site-packages\scipy\optimize\_minimize.py", line 779, in minimize
+    res = _minimize_bfgs(fun, x0, args, jac, callback, **options)
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\.venv\Lib\site-packages\scipy\optimize\_optimize.py", line 1443, in _minimize_bfgs
+    _line_search_wolfe12(f, myfprime, xk, pk, gfk,
+    ~~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^
+                         old_fval, old_old_fval, amin=1e-100,
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                         amax=1e100, c1=c1, c2=c2)
+                         ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\.venv\Lib\site-packages\scipy\optimize\_optimize.py", line 1172, in _line_search_wolfe12
+    ret = line_search_wolfe1(f, fprime, xk, pk, gfk,
+                             old_fval, old_old_fval,
+                             **kwargs)
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\.venv\Lib\site-packages\scipy\optimize\_linesearch.py", line 101, in line_search_wolfe1
+    stp, fval, old_fval = scalar_search_wolfe1(
+                          ~~~~~~~~~~~~~~~~~~~~^
+            phi, derphi, old_fval, old_old_fval, derphi0,
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+            c1=c1, c2=c2, amax=amax, amin=amin, xtol=xtol)
+            ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\.venv\Lib\site-packages\scipy\optimize\_linesearch.py", line 176, in scalar_search_wolfe1
+    stp, phi1, phi0, task = dcsrch(
+                            ~~~~~~^
+        alpha1, phi0=phi0, derphi0=derphi0, maxiter=maxiter
+        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\.venv\Lib\site-packages\scipy\optimize\_dcsrch.py", line 255, in __call__
+    phi1 = self.phi(stp)
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\.venv\Lib\site-packages\scipy\optimize\_linesearch.py", line 92, in phi
+    return f(xk + s*pk, *args)
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\.venv\Lib\site-packages\scipy\optimize\_differentiable_functions.py", line 394, in fun
+    self._update_fun()
+    ~~~~~~~~~~~~~~~~^^
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\.venv\Lib\site-packages\scipy\optimize\_differentiable_functions.py", line 362, in _update_fun
+    fx = self._wrapped_fun(self.x)
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\.venv\Lib\site-packages\scipy\_lib\_util.py", line 544, in __call__
+    fx = self.f(np.copy(x), *self.args)
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\src\csr\pricing\fit3.py", line 146, in _neg_loglik3_weighted
+    p, smooth = unpack3_smooth(theta, quadratic)
+                ~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\src\csr\pricing\fit3.py", line 72, in unpack3_smooth
+    p = ThreeFactorParams(
+        kappa1=float(kappa2 + gap), kappa2=float(kappa2),
+    ...<3 lines>...
+        lambda1=float(theta[9]), lambda2=float(theta[10]),
+    )
+  File "<string>", line 15, in __init__
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\src\csr\pricing\threefactor.py", line 98, in __post_init__
+    raise ValueError(
+    ...<3 lines>...
+    )
+ValueError: correlation matrix is not positive semi-definite (min eigenvalue -8.91e-03); rho12, rho1x, rho2x are not free of one another

@@ -1,0 +1,62 @@
+BLOCK=full  m=18  kappa1=1.8871  kappa2=0.3889
+filtered: ll=261977.28  n_obs=55294
+
+label agreement: {'n_valid': 3230, 'n_disagree': 415, 'agreement_rate': 0.871517027863777}
+
+==========================================================================================
+ENCOMPASSING BATTERY
+==========================================================================================
+
+realised_vol:
+  [realised_vol h=22 full] n=3208  b1(naive)=+0.0002 (p=0.8124)  b2(filt)=-0.0017 (p=0.0239)  R2=0.0152  [b2_only]
+  [realised_vol h=66 full] n=3120  b1(naive)=+0.0019 (p=0.0803)  b2(filt)=-0.0016 (p=0.0888)  R2=0.0204  [neither]
+  [realised_vol h=132 full] n=2988  b1(naive)=+0.0026 (p=0.0067)  b2(filt)=-0.0018 (p=0.1179)  R2=0.0489  [b1_only]
+  [realised_vol h=252 full] n=2748  b1(naive)=+0.0026 (p=0.0027)  b2(filt)=-0.0015 (p=0.2780)  R2=0.0620  [b1_only]
+
+cross_maturity_spread_change:
+  [cross_maturity_spread_change h=22 full] n=3165  b1(naive)=-0.0009 (p=0.0302)  b2(filt)=+0.0004 (p=0.3797)  R2=0.0051  [b1_only]
+  [cross_maturity_spread_change h=66 full] n=3121  b1(naive)=-0.0030 (p=0.0474)  b2(filt)=-0.0004 (p=0.8446)  R2=0.0495  [b1_only]
+  [cross_maturity_spread_change h=132 full] n=3055  b1(naive)=-0.0031 (p=0.1667)  b2(filt)=-0.0026 (p=0.2782)  R2=0.1179  [neither]
+  [cross_maturity_spread_change h=252 full] n=2935  b1(naive)=-0.0042 (p=0.0419)  b2(filt)=-0.0039 (p=0.0445)  R2=0.1698  [both]
+
+==========================================================================================
+IDENTIFYING-COUNT GATE (before any disagreement test)
+==========================================================================================
+h=  22  n_disagree= 415  n_runs= 53  n_independent_runs= 18  p_effect=0.7029  required_n(observed, restates effect)=47.7  required_n(@ref=0.65)=87.2  sufficient(disagree)=True  sufficient(indep_runs)=False
+    -> NOT RUN (insufficient identifying observations at this horizon)
+h=  66  n_disagree= 415  n_runs= 53  n_independent_runs= 10  p_effect=0.8043  required_n(observed, restates effect)=21.2  required_n(@ref=0.65)=87.2  sufficient(disagree)=True  sufficient(indep_runs)=False
+    -> NOT RUN (insufficient identifying observations at this horizon)
+h= 132  n_disagree= 415  n_runs= 53  n_independent_runs=  5  p_effect=0.7005  required_n(observed, restates effect)=48.8  required_n(@ref=0.65)=87.2  sufficient(disagree)=True  sufficient(indep_runs)=False
+    -> NOT RUN (insufficient identifying observations at this horizon)
+h= 252  n_disagree= 415  n_runs= 53  n_independent_runs=  2  p_effect=0.4722  required_n(observed, restates effect)=2530.8  required_n(@ref=0.65)=87.2  sufficient(disagree)=True  sufficient(indep_runs)=False
+    -> NOT RUN (insufficient identifying observations at this horizon)
+
+==========================================================================================
+CONFIDENCE SPLIT (filter-as-estimator)
+==========================================================================================
+h=  22  high_uncertainty: [cross_maturity_spread_change h=22 high_uncertainty] n=1583  b1(naive)=-0.0011 (p=0.0818)  b2(filt)=+0.0003 (p=0.6152)  R2=0.0059  [neither]
+          high_confidence:  [cross_maturity_spread_change h=22 high_confidence] n=1582  b1(naive)=-0.0008 (p=0.0367)  b2(filt)=+0.0004 (p=0.3127)  R2=0.0054  [b1_only]
+h=  66  high_uncertainty: [cross_maturity_spread_change h=66 high_uncertainty] n=1561  b1(naive)=-0.0026 (p=0.0802)  b2(filt)=-0.0003 (p=0.8924)  R2=0.0377  [neither]
+          high_confidence:  [cross_maturity_spread_change h=66 high_confidence] n=1560  b1(naive)=-0.0033 (p=0.0509)  b2(filt)=-0.0007 (p=0.7935)  R2=0.0693  [neither]
+h= 132  high_uncertainty: [cross_maturity_spread_change h=132 high_uncertainty] n=1528  b1(naive)=-0.0018 (p=0.5664)  b2(filt)=-0.0032 (p=0.3405)  R2=0.0761  [neither]
+          high_confidence:  [cross_maturity_spread_change h=132 high_confidence] n=1527  b1(naive)=-0.0045 (p=0.0064)  b2(filt)=-0.0021 (p=0.3126)  R2=0.2037  [b1_only]
+h= 252  high_uncertainty: [cross_maturity_spread_change h=252 high_uncertainty] n=1468  b1(naive)=-0.0056 (p=0.0031)  b2(filt)=-0.0035 (p=0.0358)  R2=0.1902  [both]
+          high_confidence:  [cross_maturity_spread_change h=252 high_confidence] n=1467  b1(naive)=-0.0027 (p=0.3778)  b2(filt)=-0.0045 (p=0.0601)  R2=0.1543  [neither]
+
+==========================================================================================
+XI ENCOMPASSES LOG PRICE
+==========================================================================================
+  [xi_encompasses_log_price h=22 full] n=3230  b1(naive)=-0.0651 (p=0.3020)  b2(filt)=+0.0019 (p=0.9705)  R2=0.0309  [neither]
+  [xi_encompasses_log_price h=66 full] n=3186  b1(naive)=-0.2748 (p=0.0212)  b2(filt)=+0.1234 (p=0.4496)  R2=0.1074  [b1_only]
+  [xi_encompasses_log_price h=132 full] n=3120  b1(naive)=-0.3405 (p=0.0442)  b2(filt)=+0.0791 (p=0.7522)  R2=0.1394  [b1_only]
+  [xi_encompasses_log_price h=252 full] n=3000  b1(naive)=-0.6993 (p=0.0272)  b2(filt)=+0.2731 (p=0.5582)  R2=0.2634  [b1_only]
+
+==========================================================================================
+CHI1/CHI2 SPLIT ENCOMPASSES LOG PRICE
+==========================================================================================
+  [chi_split_vs_log_f1 h=22] n=3230  c(log_f1)=-0.0639(p=0.0778)  c(chi1)=-0.2343(p=0.1391)  c(chi2)=+0.0801(p=0.1213)  R2=0.0661  joint(chi1=chi2=0): stat=3.473 p=0.1761
+  [chi_split_vs_log_f1 h=66] n=3186  c(log_f1)=-0.1504(p=0.0904)  c(chi1)=-0.5512(p=0.0991)  c(chi2)=+0.0129(p=0.9330)  R2=0.1387  joint(chi1=chi2=0): stat=2.865 p=0.2388
+  [chi_split_vs_log_f1 h=132] n=3120  c(log_f1)=-0.2399(p=0.0808)  c(chi1)=-0.7776(p=0.1170)  c(chi2)=+0.0659(p=0.7648)  R2=0.1916  joint(chi1=chi2=0): stat=4.158 p=0.1251
+  [chi_split_vs_log_f1 h=252] n=3000  c(log_f1)=-0.4265(p=0.0618)  c(chi1)=-0.9736(p=0.1124)  c(chi2)=-0.1156(p=0.8028)  R2=0.2854  joint(chi1=chi2=0): stat=2.985 p=0.2248
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_study_a3_full.json

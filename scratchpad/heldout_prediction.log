@@ -1,0 +1,23 @@
+panel: 3254 dates x 18 contracts
+two-factor on C1-C12: kappa=1.0545  n_iters=18
+three-factor on C1-C12: k1=2.6599  k2=0.5052  n_iters=31
+
+==========================================================================================
+HELD-OUT PREDICTION: C13-C18, from C1-C12 filtered state
+==========================================================================================
+contract     2F RMSE(bp)   3F RMSE(bp)  ratio(3F/2F)
+C13               40.679        20.151        0.4954
+C14               55.363        29.240        0.5282
+C15               71.341        38.887        0.5451
+C16               89.232        49.279        0.5523
+C17              108.335        60.483        0.5583
+C18              128.432        72.731        0.5663
+
+pooled            87.207        48.353        0.5545
+
+==========================================================================================
+VERDICT
+==========================================================================================
+THREE-FACTOR PREDICTS HELD-OUT MATURITIES BETTER (48.35bp vs 87.21bp, 44.6% lower RMSE) -- the second mean-reverting factor captures real curve structure, not just in-sample noise.
+
+saved to results/c1c18_heldout_contract_prediction.json

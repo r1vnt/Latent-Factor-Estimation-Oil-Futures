@@ -1,0 +1,19 @@
+causal standardised log-RV: 3152/3254 days active (first 60+20 days inert by construction)
+driver percentiles (active days): p50=0.066  p95=2.189  p99=3.460
+
+S3 (Gaussian, no RV): ll=265113.78  k1=2.2084  k2=0.3678
+
+S3+eta_v (gamma_v FIXED at 0): ll=266479.58  k1=2.1014  k2=0.3944
+eta_v=0.6859  (lambda_v fixed at 2.0)  gamma_v=0.000000 (must be 0)
+binding check: |eta_v|/ETA_V_MAX = 0.2286  (interior)
+  variance multiple at driver p50=0.066: 1.040x
+  variance multiple at driver p95=2.189: 3.664x
+  variance multiple at driver p99=3.460: 7.785x
+LR(S3+eta_v vs S3) = 2731.594  df=1  p=0
+
+S3+eta_v+gamma_v (both free): ll=267047.37  k1=2.1391  k2=0.3962
+eta_v=0.6873  gamma_v=0.5142
+binding check: |eta_v|/MAX=0.2291  |gamma_v|/MAX=0.1714
+LR(S3+eta_v+gamma_v vs S3+eta_v) = 1135.587  df=1  p=6.085e-249
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c18_rv_channel_diagnostic.json

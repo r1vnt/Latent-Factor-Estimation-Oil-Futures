@@ -1,0 +1,28 @@
+[12:44:11] default floor (1.4286bp) done (120.0s)  kappa=1.2192
+  s(bp): [147.2521, 78.2217, 21.5895, 2.6351, 8.6688, 8.4366, 1.4289, 9.4897]
+
+[12:44:29] Gaussian, floor released: kappa=1.5008  s(bp)=[321.059599, 162.735041, 53.265954, 16.414395, 3.3e-05, 5.474052, 8e-06, 10.033452]  (Guard 2 comparison: C5=0.0021bp, C7=0.0233bp)
+[12:45:29] Student-t, floor released, done (77.9s, 15 EM iters)  kappa=1.1940
+  s(bp): [164.543823, 102.058589, 39.961026, 14.176196, 9.6e-05, 5.234355, 9.8e-05, 7.411342]
+
+==============================================================================
+PER-CONTRACT LOG-LIKELIHOOD GAIN, floor released vs. default
+==============================================================================
+  C1: default= 147.2521bp  released=164.543823bp  ll_gain=-116.355
+  C2: default=  78.2217bp  released=102.058589bp  ll_gain=-130.440
+  C3: default=  21.5895bp  released=39.961026bp  ll_gain=1214.003
+  C4: default=   2.6351bp  released=14.176196bp  ll_gain= 796.315
+  C5: default=   8.6688bp  released= 0.000096bp  ll_gain=-1545.781  <-- C5/C7
+  C6: default=   8.4366bp  released= 5.234355bp  ll_gain= 955.081
+  C7: default=   1.4289bp  released= 0.000098bp  ll_gain=1212.751  <-- C5/C7
+  C8: default=   9.4897bp  released= 7.411342bp  ll_gain= 726.697
+
+total ll gain: 3112.270   gain at C5+C7: -333.030  (-10.7% of the total, if positive)
+
+==============================================================================
+VERDICT
+==============================================================================
+positions below 0.3bp when the Student-t-stage floor is released: [5, 7]
+C7 COLLAPSES further once the Student-t-stage floor is off too -- its floored value (1.4289bp) is the same Chen-Scott mechanism Guard 2 found at the Gaussian stage, just clamped at a different wall by MIN_SIGMA_MEAS. The quadratic curve's residual LR gap against this contract is not a real feature to chase; the free vector's C7 is not a legitimate target.
+
+saved to C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\results\c1c8_floor_released_student_t.json

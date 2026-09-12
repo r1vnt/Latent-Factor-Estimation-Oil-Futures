@@ -1,0 +1,10 @@
+panel: 3254 dates x 18 contracts, 2010-01-04 .. 2022-11-21
+news coverage on panel dates: 1958/3254 days
+feature means (raw): [-0.0743, 0.3354, 0.2583, 0.6801, 0.2893]
+feature stds  (raw): [0.1237, 0.1063, 0.0885, 0.1149, 0.089]
+n_base (structural + curve) = 15
+S0 through specs3: kappa1=1.8871  kappa2=0.3889  ll=261977.05
+price-only three-factor (results/c1c18_threefactor.json): kappa1=1.8871  kappa2=0.3889  ll=261977.28
+delta ll: -0.2345  (should be ~0 -- this is the pipeline sanity check)
+
+saved to results/c1c18_news_S0_sanity.json
