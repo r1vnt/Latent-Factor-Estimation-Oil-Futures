@@ -196,7 +196,7 @@ print(f"LR(both vs eta_v[frontspread]-only) = {LR_both:.3f}  df=1  p={p_both_lr:
 # %%
 theta0_em = pack3_smooth(p_both, smooth_both.a, smooth_both.b, smooth_both.c, quadratic=True,
                          eta_v=smooth_both.eta_v, lambda_v=smooth_both.lambda_v, rv_extension=True)
-p_hat, smooth_hat, x_filt, resid_final, weight, n_iters, ll_hat = fit3_student_t_smooth(
+p_hat, smooth_hat, x_filt, resid_final, weight, n_iters, ll_hat, _df_fixed = fit3_student_t_smooth(
     log_f, tau, DT, STUDENT_T_DF, theta0_em, quadratic=True, rv_lag=rv_lag, rv_extension=True,
     h_driver=fs_driver)
 

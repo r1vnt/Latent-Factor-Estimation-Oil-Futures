@@ -89,7 +89,7 @@ print(f"Gaussian done  ll={ll_g:.2f}  gamma_v={p_g.gamma_v:.4f}  "
      f"k1={p_g.kappa1:.4f}  k2={p_g.kappa2:.4f}")
 
 abc_g = fit_smooth_to_vector(sigma_from_tau(smooth_g, panel.tau[0]), panel.tau[0], quadratic=True)
-p_hat, smooth_hat, x_filt, resid, weight, n_iters, ll = fit3_student_t_smooth(
+p_hat, smooth_hat, x_filt, resid, weight, n_iters, ll, _ = fit3_student_t_smooth(
     panel.log_f, panel.tau, DT, STUDENT_T_DF,
     theta0=pack3_smooth(p_g, abc_g.a, abc_g.b, abc_g.c, quadratic=True),
     n_outer=200, quadratic=True, rv_lag=rv_lag_std)

@@ -101,7 +101,7 @@ print(f"warm start (Gaussian S3+eta_v+gamma_v): ll={both['ll']:.2f}  "
 # %%
 theta0 = pack3_smooth(p_warm, smooth_warm.a, smooth_warm.b, smooth_warm.c, quadratic=True,
                       eta_v=smooth_warm.eta_v, lambda_v=smooth_warm.lambda_v, rv_extension=True)
-p_hat, smooth_hat, x_filt, resid_final, weight, n_iters, ll_hat = fit3_student_t_smooth(
+p_hat, smooth_hat, x_filt, resid_final, weight, n_iters, ll_hat, _df_fixed = fit3_student_t_smooth(
     log_f, tau, DT, STUDENT_T_DF, theta0, quadratic=True, rv_lag=rv_lag, rv_extension=True)
 
 eta_ratio = abs(smooth_hat.eta_v) / ETA_V_MAX

@@ -1,0 +1,15 @@
+{
+  "crash_dates_excluded": 11,
+  "before": {
+    "mean_resid2_full": 1.3730846258368765,
+    "mean_resid2_ex_crash": 1.186183783347818,
+    "excess_kurt_full": 34.32647926109852,
+    "excess_kurt_ex_crash": 12.573546469331333
+  },
+  "after": {
+    "mean_resid2_full": 1.0998131257451995,
+    "mean_resid2_ex_crash": 1.094328580221167,
+    "excess_kurt_full": 1.857010859186925,
+    "excess_kurt_ex_crash": 1.7859553950870648
+  }
+}

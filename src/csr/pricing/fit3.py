@@ -65,7 +65,8 @@ quadratic):
 from __future__ import annotations
 
 import numpy as np
-from scipy.optimize import minimize
+from scipy.optimize import minimize, minimize_scalar
+from scipy.stats import t as _student_t_dist
 
 from ..state.fast import filter_uv
 from .smoothmeas import SmoothMeasParams, hdiag_from_tau
@@ -177,6 +178,17 @@ def student_t_weights3(resid: np.ndarray, df: float) -> np.ndarray:
     return np.where(np.isfinite(resid), w, 1.0)
 
 
+def _neg_t_loglik_df(df: float, z: np.ndarray) -> float:
+    """CM-step 2 of the df-estimating ECM: the exact (unweighted) Student-t
+    log-likelihood of the current standardised residuals as a function of
+    df alone, holding theta (and hence z) fixed. log(F) does not depend on
+    df, so it drops out of the argmax -- this is genuinely just
+    sum(log t_pdf(z; df)), not an approximation."""
+    if df <= 2.0:
+        return 1e10
+    return -float(np.sum(_student_t_dist.logpdf(z, df)))
+
+
 def _neg_loglik3(theta, log_f, tau, dt, quadratic, rv_lag=None, rv_extension=False,
                  h_driver=None):
     try:
@@ -232,7 +244,28 @@ def fit3_student_t_smooth(log_f: np.ndarray, tau: np.ndarray, dt: float,
                           df: float, theta0: np.ndarray,
                           n_outer: int = 200, tol: float = 1e-6,
                           quadratic: bool = True, rv_lag=None,
-                          rv_extension: bool = False, h_driver=None):
+                          rv_extension: bool = False, h_driver=None,
+                          estimate_df: bool = False, df_bounds: tuple = (2.1, 100.0)):
+    """ECM for the (per-cell, scale-mixture) Student-t fit. With
+    estimate_df=False (default, matching fit.py's Sec. XI-F choice and
+    every existing caller of this function), df stays exactly fixed at
+    the passed-in value throughout -- byte-for-byte the original
+    behaviour. With estimate_df=True, df is only the STARTING value: each
+    outer iteration adds a second conditional-maximisation step (CM-step
+    2, standard for the ECM algorithm for the t distribution -- Liu &
+    Rubin 1995) that updates df by exactly maximising the unweighted
+    Student-t log-likelihood of the current standardised residuals,
+    holding theta fixed, before the next E-step recomputes weights from
+    the new df. Motivated by explore/48-50: once the front-spread H
+    channel is active, pooled excess kurtosis of the standardised
+    residuals collapses to ~1.86 (near-Gaussian) and mean resid_std^2
+    sits near 1.0, not the df=5 benchmark of 1.667 -- exactly the "let nu
+    move" scenario Fix 5 anticipated rather than something to infer from
+    kurtosis alone. df_bounds guards the CM-step 2 search (df>2 for
+    finite variance); if the estimate sits at or near df_bounds[1], that
+    means the data wants an even larger df than the bound allows, not
+    that 100 is the answer -- check before trusting it, same discipline
+    as eta_v/gamma_v's binding checks."""
     weight = np.ones_like(log_f)
     theta = np.asarray(theta0, float).copy()
     p, smooth = unpack3_smooth(theta, quadratic, rv_extension)
@@ -245,6 +278,11 @@ def fit3_student_t_smooth(log_f: np.ndarray, tau: np.ndarray, dt: float,
         p, smooth = unpack3_smooth(theta, quadratic, rv_extension)
         _, _, resid_raw, _ = weighted_filter3(p, smooth, log_f, tau, dt,
                                               np.ones_like(log_f), rv_lag=rv_lag, h_driver=h_driver)
+        if estimate_df:
+            z_finite = resid_raw[np.isfinite(resid_raw)]
+            res_df = minimize_scalar(_neg_t_loglik_df, bounds=df_bounds, method="bounded",
+                                     args=(z_finite,))
+            df = float(res_df.x)
         new_weight = student_t_weights3(resid_raw, df)
         shift = float(np.nanmax(np.abs(new_weight - weight)))
         weight = new_weight
@@ -253,4 +291,4 @@ def fit3_student_t_smooth(log_f: np.ndarray, tau: np.ndarray, dt: float,
 
     ll, x_filt, resid_raw, n_obs = weighted_filter3(
         p, smooth, log_f, tau, dt, np.ones_like(log_f), rv_lag=rv_lag, h_driver=h_driver)
-    return p, smooth, x_filt, resid_raw, weight, it + 1, ll
+    return p, smooth, x_filt, resid_raw, weight, it + 1, ll, df

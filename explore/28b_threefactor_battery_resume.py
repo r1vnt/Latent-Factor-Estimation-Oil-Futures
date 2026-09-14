@@ -101,7 +101,7 @@ def fit_threefactor(log_f, tau, label, cold=False):
     p_g, smooth_g, _, _, _, ll_g = fit3_gaussian_smooth(log_f, tau, DT, theta0, quadratic=True)
     abc_g = fit_smooth_to_vector(sigma_from_tau(smooth_g, tau[0]), tau[0], quadratic=True)
     theta0_em = pack3_smooth(p_g, abc_g.a, abc_g.b, abc_g.c, quadratic=True)
-    p_hat, smooth_hat, x_filt, resid, weight, n_iters, ll = fit3_student_t_smooth(
+    p_hat, smooth_hat, x_filt, resid, weight, n_iters, ll, _ = fit3_student_t_smooth(
         log_f, tau, DT, STUDENT_T_DF, theta0_em, n_outer=200, quadratic=True)
     s_bp = (sigma_from_tau(smooth_hat, tau[0]) * 1e4).round(4)
     pinned = [j + 1 for j in range(m) if abs(s_bp[j] - FLOOR_BP) < 0.05]
@@ -228,7 +228,7 @@ print(f"\npinned contracts across all {len(results)} fits: "
 
 # %%
 print(f"\n{'=' * 90}\nFILTERED STATE CORRELATION vs. baseline (chi1, chi2) -- block-outs\n{'=' * 90}")
-_, _, x_filt_baseline, _, _, _, _ = fit3_student_t_smooth(
+_, _, x_filt_baseline, _, _, _, _, _ = fit3_student_t_smooth(
     panel.log_f, panel.tau, DT, STUDENT_T_DF,
     pack3_smooth(p_warm, A_WARM, B_WARM, C_WARM, quadratic=True),
     n_outer=200, quadratic=True)

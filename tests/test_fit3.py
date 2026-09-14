@@ -20,6 +20,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
 from csr.pricing.fit3 import (  # noqa: E402
     _neg_loglik3,
+    _neg_t_loglik_df,
+    fit3_student_t_smooth,
     pack3_smooth,
     unpack3_smooth,
     weighted_filter3,
@@ -171,3 +173,56 @@ def test_binding_constraint_is_detectable_from_the_fitted_value():
                                   eta_v=0.5, lambda_v=1.0, rv_extension=True)
     _, smooth_interior = unpack3_smooth(theta_interior, quadratic=False, rv_extension=True)
     assert abs(smooth_interior.eta_v) / ETA_V_MAX < 0.5
+
+
+# --------------------------------------------- joint nu estimation (CM-step 2) --
+def test_neg_t_loglik_df_recovers_the_true_df_from_simulated_t_data():
+    """The CM-step 2 objective is exactly sum(log t_pdf(z; df)) -- confirm
+    it actually recovers a known df from simulated data, not just that it
+    runs. n=8000 keeps sampling noise well below the 1.0 tolerance."""
+    from scipy.optimize import minimize_scalar
+    from scipy.stats import t as student_t_dist
+
+    rng = np.random.default_rng(42)
+    z = student_t_dist.rvs(df=3.0, size=8000, random_state=rng)
+    res = minimize_scalar(_neg_t_loglik_df, bounds=(2.1, 100.0), method="bounded", args=(z,))
+    assert abs(res.x - 3.0) < 1.0
+
+
+def test_neg_t_loglik_df_pushes_toward_the_bound_for_gaussian_data():
+    """Gaussian data (zero excess kurtosis) has no finite best-fit df --
+    the CM-step should push the estimate toward the upper bound, the
+    opposite of the fat-tailed case above."""
+    from scipy.optimize import minimize_scalar
+
+    rng = np.random.default_rng(7)
+    z = rng.normal(size=8000)
+    res = minimize_scalar(_neg_t_loglik_df, bounds=(2.1, 100.0), method="bounded", args=(z,))
+    assert res.x > 50.0
+
+
+def test_fit3_student_t_smooth_estimate_df_false_keeps_df_byte_for_byte_fixed():
+    """Default behaviour (estimate_df=False) must reproduce every existing
+    caller's assumption that df never moves -- the 8th return value must
+    equal the input df exactly, not just approximately."""
+    log_f, tau = _panel(seed=10)
+    p = _p3()
+    theta0 = pack3_smooth(p, a=-4.0, b=-2.0, c=1.0, quadratic=True)
+    df_start = 3.0
+    *_, df_out = fit3_student_t_smooth(log_f, tau, 1 / 252, df_start, theta0,
+                                       quadratic=True, n_outer=5)
+    assert df_out == df_start
+
+
+def test_fit3_student_t_smooth_estimate_df_true_moves_df_on_gaussian_data():
+    """Wiring check on the real EM loop (not just the standalone helper):
+    starting from a deliberately low df on Gaussian-simulated data, the
+    estimate must move -- and move UP, since Gaussian residuals have no
+    finite best-fit df."""
+    log_f, tau = _panel(seed=11)
+    p = _p3()
+    theta0 = pack3_smooth(p, a=-4.0, b=-2.0, c=1.0, quadratic=True)
+    df_start = 3.0
+    *_, df_out = fit3_student_t_smooth(log_f, tau, 1 / 252, df_start, theta0,
+                                       quadratic=True, n_outer=20, estimate_df=True)
+    assert df_out > df_start + 1.0

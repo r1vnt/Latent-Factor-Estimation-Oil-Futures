@@ -87,7 +87,7 @@ c3 = three_factor["curve"]
 theta0_3 = pack3_smooth(p3_init, c3["a"], c3["b"], c3["c"], quadratic=True)
 p3_g, smooth3_g, _, _, _, _ = fit3_gaussian_smooth(log_f_fit, tau_fit, DT, theta0_3, quadratic=True)
 abc3_g = fit_smooth_to_vector(sigma_from_tau(smooth3_g, tau_fit[0]), tau_fit[0], quadratic=True)
-p3_hat, smooth3_hat, x_filt3, _, _, n_iters3, ll3_fit = fit3_student_t_smooth(
+p3_hat, smooth3_hat, x_filt3, _, _, n_iters3, ll3_fit, _ = fit3_student_t_smooth(
     log_f_fit, tau_fit, DT, STUDENT_T_DF,
     theta0=pack3_smooth(p3_g, abc3_g.a, abc3_g.b, abc3_g.c, quadratic=True),
     n_outer=200, quadratic=True)

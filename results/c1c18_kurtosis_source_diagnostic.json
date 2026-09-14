@@ -1,0 +1,278 @@
+{
+  "top_after": [
+    {
+      "date": "2020-04-21",
+      "contract": 3,
+      "abs_z_after": 37.41071792172637,
+      "abs_z_before": 24.827481019666426,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": true
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 4,
+      "abs_z_after": 33.30768861638448,
+      "abs_z_before": 25.690244689731724,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": true
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 1,
+      "abs_z_after": 29.699215979276172,
+      "abs_z_before": 23.96858776477001,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": true
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 5,
+      "abs_z_after": 16.910469831899086,
+      "abs_z_before": 18.2278366529076,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": true
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 8,
+      "abs_z_after": 15.21208587474059,
+      "abs_z_before": 6.837433541535331,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 2,
+      "abs_z_after": 12.424815753925431,
+      "abs_z_before": 14.819772307133665,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": true
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 9,
+      "abs_z_after": 11.85564532018446,
+      "abs_z_before": 6.63532235449119,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    },
+    {
+      "date": "2015-07-03",
+      "contract": 5,
+      "abs_z_after": 9.795072306515495,
+      "abs_z_before": 8.135229781356061,
+      "fs_driver": -0.14921027515799445,
+      "rv_driver": 0.40384734315394244,
+      "in_before_top30": false
+    },
+    {
+      "date": "2013-07-10",
+      "contract": 11,
+      "abs_z_after": 8.19962465481369,
+      "abs_z_before": 7.039832923745359,
+      "fs_driver": -0.6218772297059462,
+      "rv_driver": -0.8411402852294876,
+      "in_before_top30": false
+    },
+    {
+      "date": "2013-07-10",
+      "contract": 10,
+      "abs_z_after": 8.032712089145292,
+      "abs_z_before": 7.168997589590141,
+      "fs_driver": -0.6218772297059462,
+      "rv_driver": -0.8411402852294876,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 7,
+      "abs_z_after": 7.9886102303831,
+      "abs_z_before": 1.193207212541395,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    },
+    {
+      "date": "2022-03-01",
+      "contract": 5,
+      "abs_z_after": 7.6134593144467075,
+      "abs_z_before": 6.577534434632969,
+      "fs_driver": 0.5817411290878748,
+      "rv_driver": 0.22757903523800607,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-03-09",
+      "contract": 1,
+      "abs_z_after": 7.355068475364693,
+      "abs_z_before": 7.984247112447003,
+      "fs_driver": -0.32143218853023325,
+      "rv_driver": 1.5392245646333944,
+      "in_before_top30": false
+    },
+    {
+      "date": "2022-03-02",
+      "contract": 9,
+      "abs_z_after": 6.943586212351441,
+      "abs_z_before": 6.126240875609929,
+      "fs_driver": 0.9338688319773456,
+      "rv_driver": 0.7880856875237835,
+      "in_before_top30": false
+    },
+    {
+      "date": "2022-03-02",
+      "contract": 8,
+      "abs_z_after": 6.692451401511804,
+      "abs_z_before": 6.388691705094249,
+      "fs_driver": 0.9338688319773456,
+      "rv_driver": 0.7880856875237835,
+      "in_before_top30": false
+    },
+    {
+      "date": "2022-03-02",
+      "contract": 5,
+      "abs_z_after": 6.660612870537043,
+      "abs_z_before": 6.075474085863857,
+      "fs_driver": 0.9338688319773456,
+      "rv_driver": 0.7880856875237835,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 16,
+      "abs_z_after": 6.584478715996866,
+      "abs_z_before": 1.5269474173333026,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 18,
+      "abs_z_after": 6.12349882083975,
+      "abs_z_before": 2.515237841686929,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 10,
+      "abs_z_after": 6.028650706028174,
+      "abs_z_before": 3.7346105679171657,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-04-22",
+      "contract": 17,
+      "abs_z_after": 5.814408561613297,
+      "abs_z_before": 5.844062961813068,
+      "fs_driver": 7.126094809517048,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-04-22",
+      "contract": 18,
+      "abs_z_after": 5.805610980170373,
+      "abs_z_before": 5.835568775163911,
+      "fs_driver": 7.126094809517048,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    },
+    {
+      "date": "2013-07-10",
+      "contract": 7,
+      "abs_z_after": 5.764486313350401,
+      "abs_z_before": 4.507324376416288,
+      "fs_driver": -0.6218772297059462,
+      "rv_driver": -0.8411402852294876,
+      "in_before_top30": false
+    },
+    {
+      "date": "2013-07-08",
+      "contract": 11,
+      "abs_z_after": 5.728441990610814,
+      "abs_z_before": 4.9509330248257015,
+      "fs_driver": -0.6864116990437749,
+      "rv_driver": -0.7865695782323823,
+      "in_before_top30": false
+    },
+    {
+      "date": "2022-03-03",
+      "contract": 8,
+      "abs_z_after": 5.709962577465662,
+      "abs_z_before": 5.305871909334555,
+      "fs_driver": 0.9820817946819564,
+      "rv_driver": 1.0451946266193983,
+      "in_before_top30": false
+    },
+    {
+      "date": "2014-02-18",
+      "contract": 12,
+      "abs_z_after": 5.545224515974087,
+      "abs_z_before": 5.24357948834077,
+      "fs_driver": -0.6658318184215788,
+      "rv_driver": -1.708317736211169,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 15,
+      "abs_z_after": 5.499081216028072,
+      "abs_z_before": 0.3105842029482928,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-03-12",
+      "contract": 13,
+      "abs_z_after": 5.4277971577949655,
+      "abs_z_before": 5.252044641114916,
+      "fs_driver": 0.3440846538973592,
+      "rv_driver": 3.5598457301223294,
+      "in_before_top30": false
+    },
+    {
+      "date": "2013-07-09",
+      "contract": 11,
+      "abs_z_after": 5.415871491028847,
+      "abs_z_before": 4.7856081072791286,
+      "fs_driver": -0.7498094998715455,
+      "rv_driver": -0.8200347995532954,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-04-21",
+      "contract": 17,
+      "abs_z_after": 5.29871295202519,
+      "abs_z_before": 0.7562807813673468,
+      "fs_driver": 0.0,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    },
+    {
+      "date": "2020-04-24",
+      "contract": 17,
+      "abs_z_after": 5.292549409139748,
+      "abs_z_before": 5.814459707127407,
+      "fs_driver": 12.211259207210821,
+      "rv_driver": 0.0,
+      "in_before_top30": false
+    }
+  ],
+  "overlap_with_before_top30": 5,
+  "fs_driver_mean_at_new_top30": 0.8911545243233727,
+  "fs_driver_median_overall": -0.29013994826578016,
+  "pct_new_top30_below_median_fs": 0.23333333333333334
+}

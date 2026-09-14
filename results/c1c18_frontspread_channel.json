@@ -1,0 +1,325 @@
+{
+  "driver": "abs_front_spread_lag1, causally standardised",
+  "S3_eta_v_frontspread": {
+    "ll": 272139.17304451513,
+    "eta_v": 0.7434013899388879,
+    "LR_vs_S3": 14050.788864535862,
+    "p_vs_S3": 0.0,
+    "binding": false
+  },
+  "S3_eta_v_frontspread_gamma_v": {
+    "ll": 272640.3585228104,
+    "eta_v": 0.7386979173647957,
+    "gamma_v": 0.5105938152226204,
+    "LR_vs_eta_v_only": 1002.3709565905156,
+    "p_vs_eta_v_only": 5.481583052953946e-220
+  },
+  "student_t_em": {
+    "ll": 272305.9989158197,
+    "n_em_iters": 24,
+    "kappa1": 1.6911777802556331,
+    "kappa2": 0.4710390349421288,
+    "eta_v": 0.6951040936162785,
+    "eta_v_ratio": 0.23170136453875947,
+    "gamma_v": 0.5075924446461397,
+    "gamma_v_ratio": 0.16919748154871325,
+    "params": {
+      "sigma1": 0.16836999930282,
+      "sigma2": 0.27925394345190163,
+      "sigma_xi": 0.20140803222305184,
+      "rho1x": 0.29311584985458383,
+      "rho2x": 0.020175018824783442,
+      "mu_xi": -0.02188612610769899,
+      "mu_xi_star": 0.03966349074477341,
+      "lambda1": -0.068116820495204,
+      "lambda2": 0.0865324966433933,
+      "curve": {
+        "a": -4.108614490532663,
+        "b": -8.271869937121219,
+        "c": 4.626801123287803,
+        "lambda_v": 2.1030793515184496
+      }
+    }
+  },
+  "acceptance_1_ljung_box_squared": {
+    "before": [
+      {
+        "contract": 1,
+        "lb_pvalue_1": 8.007613778970182e-204,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 2,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 3,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 4,
+        "lb_pvalue_1": 3.222341767921848e-307,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 5,
+        "lb_pvalue_1": 4.914799595114649e-87,
+        "lb_pvalue_5": 1.1737644461338378e-266,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 6,
+        "lb_pvalue_1": 9.669956463425803e-177,
+        "lb_pvalue_5": 6.173216745561228e-272,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 7,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 8,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 9,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 10,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 11,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 12,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 13,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 14,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 15,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 16,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 17,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 18,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      }
+    ],
+    "after": [
+      {
+        "contract": 1,
+        "lb_pvalue_1": 1.8751752532608342e-26,
+        "lb_pvalue_5": 2.205650150152644e-31,
+        "lb_pvalue_10": 9.808695261691292e-56,
+        "lb_pvalue_20": 3.282338664095866e-52
+      },
+      {
+        "contract": 2,
+        "lb_pvalue_1": 4.555454968914042e-25,
+        "lb_pvalue_5": 5.120877874755522e-134,
+        "lb_pvalue_10": 2.9678830486216007e-266,
+        "lb_pvalue_20": 2.297726955020307e-276
+      },
+      {
+        "contract": 3,
+        "lb_pvalue_1": 5.4186211221579605e-124,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 4,
+        "lb_pvalue_1": 3.718826572992539e-220,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 5,
+        "lb_pvalue_1": 2.895580418035954e-74,
+        "lb_pvalue_5": 9.680194813253487e-117,
+        "lb_pvalue_10": 3.701576623817404e-129,
+        "lb_pvalue_20": 1.493089900709242e-133
+      },
+      {
+        "contract": 6,
+        "lb_pvalue_1": 1.14494598780328e-99,
+        "lb_pvalue_5": 6.536353581606251e-206,
+        "lb_pvalue_10": 3.037343819189335e-254,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 7,
+        "lb_pvalue_1": 4.1873802471446105e-143,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 8,
+        "lb_pvalue_1": 1.0032280413645131e-238,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 9,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 10,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 11,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 12,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 13,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 14,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 15,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 16,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 17,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 18,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      }
+    ]
+  },
+  "acceptance_2_mechanism": {
+    "before": {
+      "n": 3189,
+      "coef_spread": 282.0413288608008,
+      "p_spread": 0.003987952124492141,
+      "r2": 0.5569762195536774
+    },
+    "after": {
+      "n": 3189,
+      "coef_spread": -3.742431118500828,
+      "p_spread": 0.4214806454292619,
+      "r2": 0.007207283638237194
+    }
+  },
+  "acceptance_3": {
+    "total_gain": 10328.718176841416,
+    "gain_from_resid2": 7555.137163034597,
+    "gain_from_logF": 2773.5810138061643,
+    "mean_resid2_before": 1.3730846258368765,
+    "mean_resid2_after": 1.0998131257451995,
+    "excess_kurt_before": 34.32647926109852,
+    "excess_kurt_after": 1.857010859186925
+  }
+}

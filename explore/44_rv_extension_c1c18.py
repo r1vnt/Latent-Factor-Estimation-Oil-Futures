@@ -110,7 +110,7 @@ theta0_em = pack3_smooth(best["p"], abc_g.a, abc_g.b, abc_g.c, quadratic=True,
                          eta_v=best["smooth"].eta_v, lambda_v=best["smooth"].lambda_v,
                          rv_extension=True)
 t0 = time.time()
-p_hat, smooth_hat, x_filt, resid, weight, n_iters, ll = fit3_student_t_smooth(
+p_hat, smooth_hat, x_filt, resid, weight, n_iters, ll, _ = fit3_student_t_smooth(
     log_f, tau, DT, STUDENT_T_DF, theta0_em, n_outer=200, quadratic=True,
     rv_lag=rv_lag, rv_extension=True)
 dt = time.time() - t0

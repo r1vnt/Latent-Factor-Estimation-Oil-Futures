@@ -1,0 +1,355 @@
+{
+  "student_t_em": {
+    "ll": 264588.9852208908,
+    "n_em_iters": 28,
+    "kappa1": 1.8195351898189394,
+    "kappa2": 0.4369454316293204,
+    "eta_v": 0.7996292162824172,
+    "eta_v_ratio": 0.2665430720941391,
+    "gamma_v": 0.5126165712751671,
+    "gamma_v_ratio": 0.17087219042505572,
+    "lambda_v": 3.0312264793034576,
+    "params": {
+      "sigma1": 0.17326965952015888,
+      "sigma2": 0.284653442360543,
+      "sigma_xi": 0.19906150753251708,
+      "rho1x": 0.28667830977481623,
+      "rho2x": -0.04875930356986058,
+      "mu_xi": -0.02214412278860436,
+      "mu_xi_star": 0.04192724603410866,
+      "lambda1": -0.06629569094239308,
+      "lambda2": 0.0802007964526174,
+      "curve": {
+        "a": -3.904729437215298,
+        "b": -8.718161725233063,
+        "c": 4.827324463172224
+      }
+    }
+  },
+  "acceptance_1_ljung_box_squared": {
+    "before": [
+      {
+        "contract": 1,
+        "lb_pvalue_1": 8.007613778970182e-204,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 2,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 3,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 4,
+        "lb_pvalue_1": 3.222341767921848e-307,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 5,
+        "lb_pvalue_1": 4.914799595114649e-87,
+        "lb_pvalue_5": 1.1737644461338378e-266,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 6,
+        "lb_pvalue_1": 9.669956463425803e-177,
+        "lb_pvalue_5": 6.173216745561228e-272,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 7,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 8,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 9,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 10,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 11,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 12,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 13,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 14,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 15,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 16,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 17,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 18,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      }
+    ],
+    "after": [
+      {
+        "contract": 1,
+        "lb_pvalue_1": 3.2613874915557977e-62,
+        "lb_pvalue_5": 1.7579992263585517e-252,
+        "lb_pvalue_10": 6.792857317228818e-254,
+        "lb_pvalue_20": 1.1081928775929689e-246
+      },
+      {
+        "contract": 2,
+        "lb_pvalue_1": 6.874772161558938e-271,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 3,
+        "lb_pvalue_1": 2.644523711684984e-274,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 4,
+        "lb_pvalue_1": 4.6197256016294605e-175,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 5,
+        "lb_pvalue_1": 1.1567320515951777e-12,
+        "lb_pvalue_5": 5.338907024758608e-103,
+        "lb_pvalue_10": 4.479138755422865e-102,
+        "lb_pvalue_20": 1.889083645503796e-100
+      },
+      {
+        "contract": 6,
+        "lb_pvalue_1": 2.1224173238385737e-167,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 7,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 8,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 9,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 10,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 11,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 12,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 13,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 14,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 15,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 16,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 17,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      },
+      {
+        "contract": 18,
+        "lb_pvalue_1": 0.0,
+        "lb_pvalue_5": 0.0,
+        "lb_pvalue_10": 0.0,
+        "lb_pvalue_20": 0.0
+      }
+    ]
+  },
+  "acceptance_2_mechanism_regression": {
+    "before": {
+      "22": {
+        "n_obs": 3166,
+        "coef_v_mag": 0.08255964015591397,
+        "p_v_mag": 0.0028979156210933873,
+        "r_squared": 0.19771418211201985
+      },
+      "66": {
+        "n_obs": 3078,
+        "coef_v_mag": 0.02771149058253489,
+        "p_v_mag": 0.1539894544000198,
+        "r_squared": 0.13817387512935186
+      },
+      "132": {
+        "n_obs": 2946,
+        "coef_v_mag": 0.02287484561437775,
+        "p_v_mag": 0.15771221946869163,
+        "r_squared": 0.20744027326745829
+      },
+      "252": {
+        "n_obs": 2706,
+        "coef_v_mag": 0.002857843358694948,
+        "p_v_mag": 0.8274369165409576,
+        "r_squared": 0.09257072395446764
+      }
+    },
+    "after": {
+      "22": {
+        "n_obs": 3166,
+        "coef_v_mag": 0.08539578967989027,
+        "p_v_mag": 0.0019917652450908326,
+        "r_squared": 0.19890124687805255
+      },
+      "66": {
+        "n_obs": 3078,
+        "coef_v_mag": 0.03148481775174604,
+        "p_v_mag": 0.11573020761076008,
+        "r_squared": 0.1390225659345068
+      },
+      "132": {
+        "n_obs": 2946,
+        "coef_v_mag": 0.026163365469716246,
+        "p_v_mag": 0.11184636767968446,
+        "r_squared": 0.2082775113035048
+      },
+      "252": {
+        "n_obs": 2706,
+        "coef_v_mag": 0.006682584347104855,
+        "p_v_mag": 0.6038607908387665,
+        "r_squared": 0.09278876044613149
+      }
+    }
+  },
+  "acceptance_3_ll_decomposition": {
+    "pooled_resid_sq_before": 1.3730846258368765,
+    "pooled_resid_sq_after": 1.3292834011662993,
+    "pooled_logF_before": -12.686755837686142,
+    "pooled_logF_after": -12.737420720799935,
+    "t5_benchmark": 1.667
+  },
+  "kurtosis_implied_nu": {
+    "excess_kurt_before": 34.32647926109852,
+    "excess_kurt_after": 54.25521342773176,
+    "nu_before": 4.1747921758698885,
+    "nu_after": 4.1105884507853245,
+    "fixed_nu": 5.0
+  }
+}

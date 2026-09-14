@@ -84,7 +84,7 @@ t0 = time.time()
 abc_g = fit_smooth_to_vector(sigma_from_tau(best["smooth"], panel.tau[0]),
                              panel.tau[0], quadratic=True)
 theta0_em = pack3_smooth(best["p"], abc_g.a, abc_g.b, abc_g.c, quadratic=True)
-p_hat, smooth_hat, x_filt, resid, weight, n_iters, ll = fit3_student_t_smooth(
+p_hat, smooth_hat, x_filt, resid, weight, n_iters, ll, _ = fit3_student_t_smooth(
     panel.log_f, panel.tau, DT, STUDENT_T_DF, theta0_em, n_outer=200, quadratic=True)
 dt = time.time() - t0
 converged = n_iters < 200
