@@ -29,5 +29,13 @@
     "LR": 159.12296095772763,
     "df": 5,
     "p_value": 1.522186988263662e-32
+  },
+  "_provenance": {
+    "result_id": "c1c8_quadratic_converged",
+    "producing_script": "explore/22_smooth_quadratic_c1c8_converged.py",
+    "git_commit": "a10945ffa939061fcc62d05cba3419df8af83eba",
+    "timestamp_utc": "2026-09-08T11:56:07+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
   }
 }

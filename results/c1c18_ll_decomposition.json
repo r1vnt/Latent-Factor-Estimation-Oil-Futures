@@ -317,5 +317,13 @@
       "lb_pvalue_10": 0.0,
       "lb_pvalue_20": 0.0
     }
-  ]
+  ],
+  "_provenance": {
+    "result_id": "c1c18_ll_decomposition",
+    "producing_script": "explore/30_ll_decomposition.py",
+    "git_commit": "a3a004c34df401fffd8797fc64127a8b52764c5e",
+    "timestamp_utc": "2026-09-08T11:56:32+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

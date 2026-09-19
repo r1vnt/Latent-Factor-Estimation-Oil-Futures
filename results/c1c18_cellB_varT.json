@@ -152,5 +152,13 @@
       -8.927500282972472,
       4.85418493144231
     ]
+  },
+  "_provenance": {
+    "result_id": "c1c18_cellB_varT",
+    "producing_script": "explore/60_cellB_varT_fit_c1c18.py",
+    "git_commit": "402c942c96978664cb1d803b38949eeea815d4cc",
+    "timestamp_utc": "2026-09-19T01:41:54+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
   }
 }

@@ -1006,5 +1006,13 @@
     9.034365791510936,
     12.571551713652298
   ],
-  "empirical_p": 0.001
+  "empirical_p": 0.001,
+  "_provenance": {
+    "result_id": "c1c18_news_placebo",
+    "producing_script": "explore/40_news_placebo_c1c18.py",
+    "git_commit": "b25e5dd1e6cf476787f886935b5929db48771441",
+    "timestamp_utc": "2026-09-08T16:32:30+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

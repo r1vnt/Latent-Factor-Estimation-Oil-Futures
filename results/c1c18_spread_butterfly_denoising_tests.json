@@ -1129,5 +1129,13 @@
   "block_length": 20,
   "n_boot": 2000,
   "alpha": 0.01,
-  "power_target": 0.8
+  "power_target": 0.8,
+  "_provenance": {
+    "result_id": "c1c18_spread_butterfly_denoising_tests",
+    "producing_script": "explore/58_spread_and_butterfly_denoising_tests_c1c18.py",
+    "git_commit": "402c942c96978664cb1d803b38949eeea815d4cc",
+    "timestamp_utc": "2026-09-19T01:41:54+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

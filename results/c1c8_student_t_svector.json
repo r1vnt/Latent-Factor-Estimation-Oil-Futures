@@ -35,5 +35,13 @@
   "pinned_positions": [
     7
   ],
-  "total_seconds": 125.52048707008362
+  "total_seconds": 125.52048707008362,
+  "_provenance": {
+    "result_id": "c1c8_student_t_svector",
+    "producing_script": null,
+    "git_commit": "a10945ffa939061fcc62d05cba3419df8af83eba",
+    "timestamp_utc": "2026-09-08T11:56:07+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

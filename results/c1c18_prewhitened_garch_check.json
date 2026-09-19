@@ -146,5 +146,13 @@
       "lb_pvalue_10": 3.5201095191554e-146,
       "lb_pvalue_20": 2.2389822624030344e-226
     }
-  ]
+  ],
+  "_provenance": {
+    "result_id": "c1c18_prewhitened_garch_check",
+    "producing_script": "explore/36_prewhitened_garch_check.py",
+    "git_commit": "5cc497d5037743c857088c2c3109152028366143",
+    "timestamp_utc": "2026-09-08T11:56:58+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

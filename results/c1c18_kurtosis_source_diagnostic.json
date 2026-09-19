@@ -274,5 +274,13 @@
   "overlap_with_before_top30": 5,
   "fs_driver_mean_at_new_top30": 0.8911545243233727,
   "fs_driver_median_overall": -0.29013994826578016,
-  "pct_new_top30_below_median_fs": 0.23333333333333334
+  "pct_new_top30_below_median_fs": 0.23333333333333334,
+  "_provenance": {
+    "result_id": "c1c18_kurtosis_source_diagnostic",
+    "producing_script": "explore/49_kurtosis_source_diagnostic_c1c18.py",
+    "git_commit": "63bd5902234822dc11093c8fdb0e1f913251240a",
+    "timestamp_utc": "2026-09-14T17:40:18+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

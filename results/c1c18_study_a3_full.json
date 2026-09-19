@@ -128,5 +128,13 @@
       "sufficient_disagree_days": true,
       "sufficient_independent_runs": false
     }
+  },
+  "_provenance": {
+    "result_id": "c1c18_study_a3_full",
+    "producing_script": "explore/42_study_a3_c1c18.py",
+    "git_commit": "14cd31c97a60fa2ec2757158459128d6315206d3",
+    "timestamp_utc": "2026-09-08T16:53:07+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
   }
 }

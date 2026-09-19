@@ -358,5 +358,13 @@
     "k2_block_spread": 0.06451036882591576,
     "k1_pass": false,
     "k2_pass": true
+  },
+  "_provenance": {
+    "result_id": "c1c18_threefactor_battery",
+    "producing_script": "explore/28_threefactor_battery_c1c18.py  [ALSO: ['28b_threefactor_battery_resume.py']]",
+    "git_commit": "a3a004c34df401fffd8797fc64127a8b52764c5e",
+    "timestamp_utc": "2026-09-08T11:56:32+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
   }
 }

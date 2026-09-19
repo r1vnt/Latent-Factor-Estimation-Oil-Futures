@@ -40,5 +40,13 @@
     "a": -3.451604257673381,
     "b": -15.007832301523012,
     "c": 11.963089723499998
+  },
+  "_provenance": {
+    "result_id": "c1c18_news_SM_drop_C13_C18",
+    "producing_script": "explore/39_news_lattice_fit_c1c18.py  [ALSO: ['41_news_block_out_battery.py']]",
+    "git_commit": "b25e5dd1e6cf476787f886935b5929db48771441",
+    "timestamp_utc": "2026-09-08T16:32:30+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
   }
 }

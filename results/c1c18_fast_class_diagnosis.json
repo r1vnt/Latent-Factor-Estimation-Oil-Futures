@@ -34,5 +34,13 @@
   ],
   "fitted_kappa_fast": 12.321408282385372,
   "fitted_half_life_days": 20.54732721270616,
-  "fitted_a0": 0.8171637587765881
+  "fitted_a0": 0.8171637587765881,
+  "_provenance": {
+    "result_id": "c1c18_fast_class_diagnosis",
+    "producing_script": "explore/33_fast_class_diagnosis.py",
+    "git_commit": "5cc497d5037743c857088c2c3109152028366143",
+    "timestamp_utc": "2026-09-08T11:56:58+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

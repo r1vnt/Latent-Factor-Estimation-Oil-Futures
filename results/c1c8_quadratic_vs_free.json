@@ -33,5 +33,13 @@
     "df": 1,
     "p_value": 0.0
   },
-  "floor_bp": 1.4285714285714286
+  "floor_bp": 1.4285714285714286,
+  "_provenance": {
+    "result_id": "c1c8_quadratic_vs_free",
+    "producing_script": "explore/21_smooth_quadratic_c1c8.py",
+    "git_commit": "a10945ffa939061fcc62d05cba3419df8af83eba",
+    "timestamp_utc": "2026-09-08T11:56:07+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

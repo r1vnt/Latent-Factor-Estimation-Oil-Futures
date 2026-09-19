@@ -893,5 +893,13 @@
     }
   ],
   "baseline_kappa": 0.7573594565334565,
-  "total_seconds": 2242.0453202724457
+  "total_seconds": 2242.0453202724457,
+  "_provenance": {
+    "result_id": "c1c18_perturbation_battery",
+    "producing_script": "explore/26_perturbation_battery_c1c18.py",
+    "git_commit": "a10945ffa939061fcc62d05cba3419df8af83eba",
+    "timestamp_utc": "2026-09-08T11:56:07+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

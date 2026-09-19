@@ -11,5 +11,13 @@
     "mean_resid2_ex_crash": 1.094328580221167,
     "excess_kurt_full": 1.857010859186925,
     "excess_kurt_ex_crash": 1.7859553950870648
+  },
+  "_provenance": {
+    "result_id": "c1c18_calibration_robustness",
+    "producing_script": "explore/50_calibration_robustness_check_c1c18.py",
+    "git_commit": "63bd5902234822dc11093c8fdb0e1f913251240a",
+    "timestamp_utc": "2026-09-14T17:40:18+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
   }
 }

@@ -321,5 +321,13 @@
     "mean_resid2_after": 1.0998131257451995,
     "excess_kurt_before": 34.32647926109852,
     "excess_kurt_after": 1.857010859186925
+  },
+  "_provenance": {
+    "result_id": "c1c18_frontspread_channel",
+    "producing_script": "explore/48_frontspread_channel_c1c18.py",
+    "git_commit": "63bd5902234822dc11093c8fdb0e1f913251240a",
+    "timestamp_utc": "2026-09-14T17:40:18+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
   }
 }

@@ -44,5 +44,13 @@
     "mu_xi": -0.024983660531782845,
     "mu_xi_star": -0.044794304839773466,
     "lambda_chi": 0.0458790948459111
+  },
+  "_provenance": {
+    "result_id": "c1c18_smooth_quadratic",
+    "producing_script": "explore/24_fire_c1c18.py",
+    "git_commit": "a10945ffa939061fcc62d05cba3419df8af83eba",
+    "timestamp_utc": "2026-09-08T11:56:07+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
   }
 }

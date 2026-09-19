@@ -1,15 +1,15 @@
 {
-  "gamma_v": 0.7574480684089699,
-  "kappa1": 1.9920391456417792,
-  "kappa2": 0.414897777177596,
-  "ll": 263892.73944507906,
+  "gamma_v": 0.7574443031172764,
+  "kappa1": 1.992041265243182,
+  "kappa2": 0.4148721118253038,
+  "ll": 263892.67663647095,
   "ll_without_gamma_v": 261977.28073897827,
-  "n_em_iters": 28,
+  "n_em_iters": 14,
   "converged": true,
   "ljung_box_squared": [
     {
       "contract": 1,
-      "lb_pvalue_1": 6.0988771245808716e-114,
+      "lb_pvalue_1": 6.137471971084296e-114,
       "lb_pvalue_5": 0.0,
       "lb_pvalue_10": 0.0,
       "lb_pvalue_20": 0.0
@@ -30,21 +30,21 @@
     },
     {
       "contract": 4,
-      "lb_pvalue_1": 2.0045789300009613e-258,
+      "lb_pvalue_1": 2.0145001335836078e-258,
       "lb_pvalue_5": 0.0,
       "lb_pvalue_10": 0.0,
       "lb_pvalue_20": 0.0
     },
     {
       "contract": 5,
-      "lb_pvalue_1": 1.0297255925470903e-91,
-      "lb_pvalue_5": 3.2888385797639115e-256,
+      "lb_pvalue_1": 1.0331668972143536e-91,
+      "lb_pvalue_5": 3.32369175124842e-256,
       "lb_pvalue_10": 0.0,
       "lb_pvalue_20": 0.0
     },
     {
       "contract": 6,
-      "lb_pvalue_1": 1.856773840361202e-240,
+      "lb_pvalue_1": 1.817227471694098e-240,
       "lb_pvalue_5": 0.0,
       "lb_pvalue_10": 0.0,
       "lb_pvalue_20": 0.0
@@ -133,5 +133,13 @@
       "lb_pvalue_10": 0.0,
       "lb_pvalue_20": 0.0
     }
-  ]
+  ],
+  "_provenance": {
+    "result_id": "c1c18_gamma_v",
+    "producing_script": "explore/37_gamma_v_c1c18.py",
+    "git_commit": "e025421791dfec76c96bc52c7dfc634868bd5679",
+    "timestamp_utc": "2026-09-08T16:32:06+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

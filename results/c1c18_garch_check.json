@@ -172,5 +172,13 @@
     0.15231207320961315,
     0.14175244037557025,
     0.12706717541086401
-  ]
+  ],
+  "_provenance": {
+    "result_id": "c1c18_garch_check",
+    "producing_script": "explore/35_garch_check.py",
+    "git_commit": "5cc497d5037743c857088c2c3109152028366143",
+    "timestamp_utc": "2026-09-08T11:56:58+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }

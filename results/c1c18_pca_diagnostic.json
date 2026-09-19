@@ -204,5 +204,13 @@
       "pct_explained_pca": 0.9905625760367547,
       "pct_explained_affine": 0.9956232684872165
     }
-  ]
+  ],
+  "_provenance": {
+    "result_id": "c1c18_pca_diagnostic",
+    "producing_script": "explore/59_pca_diagnostic_c1c18.py",
+    "git_commit": "402c942c96978664cb1d803b38949eeea815d4cc",
+    "timestamp_utc": "2026-09-19T01:41:54+01:00",
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
 }
