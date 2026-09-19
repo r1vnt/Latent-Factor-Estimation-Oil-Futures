@@ -1,0 +1,132 @@
+{
+  "state": "front-spread H channel + RV Q channel, joint nu (explore/51)",
+  "nu_hat": 13.735369933455948,
+  "kappa1": 1.670565718759679,
+  "kappa2": 0.44828892115364966,
+  "ll": 272556.41218401917,
+  "label_agreement": {
+    "n_valid": 3230,
+    "n_disagree": 390,
+    "agreement_rate": 0.8792569659442724
+  },
+  "battery": {
+    "realised_vol": {
+      "22": {
+        "b1": 0.0004969642604508654,
+        "b2": -0.002020397909492218,
+        "p_b1": 0.5529107424686965,
+        "p_b2": 0.008689413753443476,
+        "n_obs": 3208,
+        "pattern": "b2_only"
+      },
+      "66": {
+        "b1": 0.002132610658390731,
+        "b2": -0.0018331990499804783,
+        "p_b1": 0.05451078971528411,
+        "p_b2": 0.05204102389150844,
+        "n_obs": 3120,
+        "pattern": "neither"
+      },
+      "132": {
+        "b1": 0.0027883474397133704,
+        "b2": -0.0019830616730152116,
+        "p_b1": 0.004142201194000981,
+        "p_b2": 0.08527011219733839,
+        "n_obs": 2988,
+        "pattern": "b1_only"
+      },
+      "252": {
+        "b1": 0.0026995125109641493,
+        "b2": -0.001631515686002802,
+        "p_b1": 0.001855504279484857,
+        "p_b2": 0.2550092638890604,
+        "n_obs": 2748,
+        "pattern": "b1_only"
+      }
+    },
+    "cross_maturity_spread_change": {
+      "22": {
+        "b1": -0.001045352472358867,
+        "b2": 0.0005065951626468375,
+        "p_b1": 0.01393521721701927,
+        "p_b2": 0.263503478375938,
+        "n_obs": 3165,
+        "pattern": "b1_only"
+      },
+      "66": {
+        "b1": -0.0028774874817999387,
+        "b2": -0.00047706998670243704,
+        "p_b1": 0.0699061180832838,
+        "p_b2": 0.8198233512192076,
+        "n_obs": 3121,
+        "pattern": "neither"
+      },
+      "132": {
+        "b1": -0.002788272256648743,
+        "b2": -0.002999177714508147,
+        "p_b1": 0.22869905711500838,
+        "p_b2": 0.23048018516102842,
+        "n_obs": 3055,
+        "pattern": "neither"
+      },
+      "252": {
+        "b1": -0.004101259344420595,
+        "b2": -0.0038590439587550245,
+        "p_b1": 0.04266584289817731,
+        "p_b2": 0.04508601774449162,
+        "n_obs": 2935,
+        "pattern": "both"
+      }
+    }
+  },
+  "identifying_gate": {
+    "22": {
+      "h": 22,
+      "n_disagree": 390,
+      "n_runs": 53,
+      "n_independent_runs": 18,
+      "p_effect": 0.712082262210797,
+      "required_n_observed": 43.625356484166694,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
+      "sufficient_disagree_days": true,
+      "sufficient_independent_runs": false
+    },
+    "66": {
+      "h": 66,
+      "n_disagree": 390,
+      "n_runs": 53,
+      "n_independent_runs": 10,
+      "p_effect": 0.794344473007712,
+      "required_n_observed": 22.648315826956754,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
+      "sufficient_disagree_days": true,
+      "sufficient_independent_runs": false
+    },
+    "132": {
+      "h": 132,
+      "n_disagree": 390,
+      "n_runs": 53,
+      "n_independent_runs": 5,
+      "p_effect": 0.6838046272493573,
+      "required_n_observed": 58.08109591087286,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
+      "sufficient_disagree_days": true,
+      "sufficient_independent_runs": false
+    },
+    "252": {
+      "h": 252,
+      "n_disagree": 390,
+      "n_runs": 53,
+      "n_independent_runs": 2,
+      "p_effect": 0.46649484536082475,
+      "required_n_observed": 1747.931583916938,
+      "reference_effect_size": 0.65,
+      "required_n_reference": 87.20977482610098,
+      "sufficient_disagree_days": true,
+      "sufficient_independent_runs": false
+    }
+  }
+}
