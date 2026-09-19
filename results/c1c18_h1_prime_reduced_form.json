@@ -1,0 +1,149 @@
+{
+  "rows": [
+    {
+      "h": 5,
+      "feature": "sent_mean",
+      "n": 1950,
+      "coef_interact": 0.13586645332985586,
+      "p_interact": 0.7640474734440671,
+      "r_squared": 0.00046099418341405407
+    },
+    {
+      "h": 5,
+      "feature": "theme_supply_disruption",
+      "n": 1950,
+      "coef_interact": -1.478924911532393,
+      "p_interact": 0.041292173684772976,
+      "r_squared": 0.008162702056963789
+    },
+    {
+      "h": 5,
+      "feature": "theme_opec_policy",
+      "n": 1950,
+      "coef_interact": -1.2513164619258443,
+      "p_interact": 0.08909205405077093,
+      "r_squared": 0.0026704477600630883
+    },
+    {
+      "h": 5,
+      "feature": "theme_geopolitics",
+      "n": 1950,
+      "coef_interact": -0.019870994293833016,
+      "p_interact": 0.977365069029372,
+      "r_squared": 0.0020515937843161858
+    },
+    {
+      "h": 5,
+      "feature": "theme_demand",
+      "n": 1950,
+      "coef_interact": 0.3447192133986882,
+      "p_interact": 0.5198752927575649,
+      "r_squared": 0.0009100721551984492
+    },
+    {
+      "h": 5,
+      "feature": "intensity",
+      "n": 1929,
+      "coef_interact": 0.007274172046840705,
+      "p_interact": 0.9479343027027454,
+      "r_squared": 0.0007158543311904797
+    },
+    {
+      "h": 22,
+      "feature": "sent_mean",
+      "n": 1933,
+      "coef_interact": -0.3916123942676384,
+      "p_interact": 0.714303092473316,
+      "r_squared": 0.0056861502437194344
+    },
+    {
+      "h": 22,
+      "feature": "theme_supply_disruption",
+      "n": 1933,
+      "coef_interact": -3.8917225712414956,
+      "p_interact": 0.08227767297725345,
+      "r_squared": 0.026894032524581224
+    },
+    {
+      "h": 22,
+      "feature": "theme_opec_policy",
+      "n": 1933,
+      "coef_interact": -4.830941749552945,
+      "p_interact": 0.12798811831039894,
+      "r_squared": 0.013286217846686377
+    },
+    {
+      "h": 22,
+      "feature": "theme_geopolitics",
+      "n": 1933,
+      "coef_interact": 0.6996177273440186,
+      "p_interact": 0.5521875137924925,
+      "r_squared": 0.010749554990658328
+    },
+    {
+      "h": 22,
+      "feature": "theme_demand",
+      "n": 1933,
+      "coef_interact": 1.6273393009512849,
+      "p_interact": 0.11820302552691894,
+      "r_squared": 0.006666203959756811
+    },
+    {
+      "h": 22,
+      "feature": "intensity",
+      "n": 1912,
+      "coef_interact": 0.2914990486391879,
+      "p_interact": 0.443065078870142,
+      "r_squared": 0.011954803751144438
+    },
+    {
+      "h": 66,
+      "feature": "sent_mean",
+      "n": 1889,
+      "coef_interact": 1.4223299857115457,
+      "p_interact": 0.16985027585589052,
+      "r_squared": 0.005331276467399393
+    },
+    {
+      "h": 66,
+      "feature": "theme_supply_disruption",
+      "n": 1889,
+      "coef_interact": -2.27514548135652,
+      "p_interact": 0.4508270815912345,
+      "r_squared": 0.030029500814505394
+    },
+    {
+      "h": 66,
+      "feature": "theme_opec_policy",
+      "n": 1889,
+      "coef_interact": -5.902522344009462,
+      "p_interact": 0.14282268012030264,
+      "r_squared": 0.014605683939933556
+    },
+    {
+      "h": 66,
+      "feature": "theme_geopolitics",
+      "n": 1889,
+      "coef_interact": 1.0103100300454742,
+      "p_interact": 0.5923355959286241,
+      "r_squared": 0.0011470794093241254
+    },
+    {
+      "h": 66,
+      "feature": "theme_demand",
+      "n": 1889,
+      "coef_interact": 1.0623131381163626,
+      "p_interact": 0.5037681846673188,
+      "r_squared": 0.0028733273158985106
+    },
+    {
+      "h": 66,
+      "feature": "intensity",
+      "n": 1868,
+      "coef_interact": 0.3171260487738261,
+      "p_interact": 0.4071282143726044,
+      "r_squared": 0.0014763981886690702
+    }
+  ],
+  "any_significant": false
+}

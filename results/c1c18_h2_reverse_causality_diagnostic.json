@@ -1,0 +1,8 @@
+{
+  "corr_Ilag_RVlag": 0.10774537394858096,
+  "corr_Itoday_RVlag": 0.08942315893308622,
+  "corr_Itoday_RVtoday": 0.10750777966001111,
+  "n_Ilag_RVlag": 1915,
+  "n_Itoday_RVlag": 1916,
+  "n_Itoday_RVtoday": 1916
+}

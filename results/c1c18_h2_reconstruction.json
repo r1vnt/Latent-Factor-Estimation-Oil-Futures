@@ -1,0 +1,10 @@
+{
+  "dow_seasonality_r2": 0.016413804870101356,
+  "corr_full": -0.026603581437058727,
+  "n_full": 1915,
+  "corr_scheduled": -0.05709100805466631,
+  "n_scheduled": 471,
+  "corr_unscheduled": -0.015959760187101275,
+  "n_unscheduled": 1444,
+  "n_scheduled_days_in_sample": 799
+}
