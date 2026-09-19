@@ -1,0 +1,22 @@
+{
+  "n_news_valid": 1936,
+  "n_panel": 3254,
+  "check1_corr_intensity_rv": 0.10774537394858096,
+  "check2": {
+    "n": 1914,
+    "r2_rv_only": 0.26971551546432626,
+    "r2_both": 0.2701913821051066,
+    "incremental_r2": 0.00047586664078036467,
+    "coef_intensity": -0.33746202654964286,
+    "p_intensity": 0.47154934241036495,
+    "survives": false
+  },
+  "_provenance": {
+    "result_id": "c1c18_h2_step0_precheck",
+    "producing_script": "explore/62_h2_step0_precheck_c1c18.py",
+    "git_commit": null,
+    "timestamp_utc": null,
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
+}

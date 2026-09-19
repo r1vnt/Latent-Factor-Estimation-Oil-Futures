@@ -97,3 +97,15 @@ print("Coverage stops well short of 2024-04-05 -- Step 2's price-only S0P "
      "reference sample on the deep panel will be truncated at "
      f"{last_full.date()}, a scope reduction per Runbook 2.2's own logic "
      "(depth over date range), not a blocker.")
+
+# %%
+import json  # noqa: E402
+
+out_path = ROOT / "results" / "c1c18_eia_settlement_validation.json"
+out_path.write_text(json.dumps({
+    "n_overlap_days": int(len(j)), "exact_match_rate": float((j["abs"] < 1e-9).mean()),
+    "within_1_tick_rate": float(pass_rate), "mean_abs_diff": float(j["abs"].mean()),
+    "median_abs_diff": float(j["abs"].median()), "max_abs_diff": float(j["abs"].max()),
+    "verdict": verdict,
+}, indent=2))
+print(f"\nsaved to {out_path}")

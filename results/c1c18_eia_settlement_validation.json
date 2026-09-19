@@ -1,0 +1,17 @@
+{
+  "n_overlap_days": 3234,
+  "exact_match_rate": 0.9993815708101422,
+  "within_1_tick_rate": 0.9993815708101422,
+  "mean_abs_diff": 0.00038033395176252004,
+  "median_abs_diff": 0.0,
+  "max_abs_diff": 0.8799999999999955,
+  "verdict": "SETTLEMENT CONFIRMED",
+  "_provenance": {
+    "result_id": "c1c18_eia_settlement_validation",
+    "producing_script": "explore/15_validate_kaggle_panel.py",
+    "git_commit": null,
+    "timestamp_utc": null,
+    "panel_hash": "2e397a2ef363c909",
+    "package_version": "402c942-dirty"
+  }
+}
