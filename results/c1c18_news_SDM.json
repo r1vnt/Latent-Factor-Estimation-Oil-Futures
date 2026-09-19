@@ -69,9 +69,9 @@
   "_provenance": {
     "result_id": "c1c18_news_SDM",
     "producing_script": "explore/39_news_lattice_fit_c1c18.py",
-    "git_commit": "b25e5dd1e6cf476787f886935b5929db48771441",
-    "timestamp_utc": "2026-09-08T16:32:30+01:00",
+    "git_commit": "d8fb15829cd6d5b07339a77fd0d3c1f52f53d145",
+    "timestamp_utc": "2026-09-19T13:24:01+01:00",
     "panel_hash": "2e397a2ef363c909",
-    "package_version": "402c942-dirty"
+    "package_version": "d8fb158"
   }
 }

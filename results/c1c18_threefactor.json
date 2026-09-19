@@ -85,9 +85,9 @@
   "_provenance": {
     "result_id": "c1c18_threefactor",
     "producing_script": "explore/27_threefactor_c1c18.py",
-    "git_commit": "a3a004c34df401fffd8797fc64127a8b52764c5e",
-    "timestamp_utc": "2026-09-08T11:56:32+01:00",
+    "git_commit": "d8fb15829cd6d5b07339a77fd0d3c1f52f53d145",
+    "timestamp_utc": "2026-09-19T13:24:01+01:00",
     "panel_hash": "2e397a2ef363c909",
-    "package_version": "402c942-dirty"
+    "package_version": "d8fb158"
   }
 }

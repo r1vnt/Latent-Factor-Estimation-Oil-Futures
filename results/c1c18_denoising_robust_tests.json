@@ -590,9 +590,9 @@
   "_provenance": {
     "result_id": "c1c18_denoising_robust_tests",
     "producing_script": "explore/56_denoising_robust_tests_c1c18.py",
-    "git_commit": "402c942c96978664cb1d803b38949eeea815d4cc",
-    "timestamp_utc": "2026-09-19T01:41:54+01:00",
+    "git_commit": "d8fb15829cd6d5b07339a77fd0d3c1f52f53d145",
+    "timestamp_utc": "2026-09-19T13:24:01+01:00",
     "panel_hash": "2e397a2ef363c909",
-    "package_version": "402c942-dirty"
+    "package_version": "d8fb158"
   }
 }

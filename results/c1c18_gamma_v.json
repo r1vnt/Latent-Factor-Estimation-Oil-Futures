@@ -137,9 +137,9 @@
   "_provenance": {
     "result_id": "c1c18_gamma_v",
     "producing_script": "explore/37_gamma_v_c1c18.py",
-    "git_commit": "e025421791dfec76c96bc52c7dfc634868bd5679",
-    "timestamp_utc": "2026-09-08T16:32:06+01:00",
+    "git_commit": "d8fb15829cd6d5b07339a77fd0d3c1f52f53d145",
+    "timestamp_utc": "2026-09-19T13:24:01+01:00",
     "panel_hash": "2e397a2ef363c909",
-    "package_version": "402c942-dirty"
+    "package_version": "d8fb158"
   }
 }
