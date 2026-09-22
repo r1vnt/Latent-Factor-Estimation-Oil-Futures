@@ -84,6 +84,8 @@ class ThreeFactorParams:
     lambda1: float = 0.0
     lambda2: float = 0.0
     gamma_v: float = 0.0      # lagged realised vol -> process noise (eq. 24)
+    kappa1_phys: float | None = None   # essentially-affine kappa1^P; None = kappa1 (completely affine)
+    kappa2_phys: float | None = None   # essentially-affine kappa2^P; None = kappa2 (completely affine)
 
     def __post_init__(self):
         if not (self.kappa1 > self.kappa2):
@@ -101,6 +103,26 @@ class ThreeFactorParams:
                 f"(min eigenvalue {ev.min():.2e}); rho12, rho1x, rho2x are not "
                 f"free of one another"
             )
+        # kappa1/kappa2 remain kappa^Q throughout (Z's loading, A_tau3's drift
+        # -- the risk-neutral dynamics futures are priced under). kappa_phys
+        # is kappa^P, the physical-measure mean-reversion rate that actually
+        # governs T/Q in the filter. Defaulting to kappa1/kappa2 when unset
+        # is what makes the completely-affine model (kappa^P = kappa^Q, the
+        # only case this project fit before this extension) an EXACT special
+        # case, not an approximation -- Step-3-style nesting, now for the
+        # market-price-of-risk restriction rather than a zeroed channel.
+        if self.kappa1_phys is None:
+            object.__setattr__(self, "kappa1_phys", self.kappa1)
+        if self.kappa2_phys is None:
+            object.__setattr__(self, "kappa2_phys", self.kappa2)
+        if self.kappa1_phys <= 0 or self.kappa2_phys <= 0:
+            raise ValueError(
+                f"kappa1_phys={self.kappa1_phys}, kappa2_phys={self.kappa2_phys} must be "
+                f"positive -- a physical-measure mean-reversion rate of exactly zero is a "
+                f"unit root (a different, more drastic claim than 'near-unit-root'; if the "
+                f"data wants this, fit3.py's log-parameterisation will report a value very "
+                f"close to zero, not exactly zero, and that IS the near-unit-root finding)"
+            )
 
     def corr(self) -> np.ndarray:
         return np.array([[1.0, self.rho12, self.rho1x],
@@ -114,6 +136,27 @@ class ThreeFactorParams:
     @property
     def half_life_slow_days(self) -> float:
         return float(np.log(2.0) / max(self.kappa2, EPS) * 365.25)
+
+    @property
+    def half_life_fast_phys_days(self) -> float:
+        return float(np.log(2.0) / max(self.kappa1_phys, EPS) * 365.25)
+
+    @property
+    def half_life_slow_phys_days(self) -> float:
+        return float(np.log(2.0) / max(self.kappa2_phys, EPS) * 365.25)
+
+    @property
+    def beta1(self) -> float:
+        """Implied essentially-affine market-price-of-risk slope for factor
+        1: kappa1_phys = kappa1 - sigma1*beta1, i.e. beta1 = (kappa1 -
+        kappa1_phys)/sigma1. Reported for interpretability (this is the
+        literature's own parameter); the actual free parameter fit is
+        kappa1_phys directly -- see fit3.py's docstring for why."""
+        return float((self.kappa1 - self.kappa1_phys) / self.sigma1) if self.sigma1 > 0 else 0.0
+
+    @property
+    def beta2(self) -> float:
+        return float((self.kappa2 - self.kappa2_phys) / self.sigma2) if self.sigma2 > 0 else 0.0
 
     def replace(self, **kw) -> "ThreeFactorParams":
         return replace(self, **kw)
@@ -150,21 +193,33 @@ def base_system3(p: ThreeFactorParams, tau, dt: float) -> dict:
     :func:`csr.pricing.smoothmeas.hdiag_from_tau` and overwrite. Keeping the two
     apart is deliberate -- the measurement curve is what removed the Chen-Scott
     degeneracy and it should not be silently re-specified here.
+
+    T/Q use kappa1_phys/kappa2_phys (kappa^P, physical-measure mean
+    reversion -- what the filter's transition equation actually propagates,
+    since the data being filtered is real-world, not risk-neutral). Z and
+    A_tau3's d use kappa1/kappa2 (kappa^Q) unchanged -- the loading a
+    futures price carries and the risk-neutral drift adjustment are both
+    priced under the risk-neutral measure regardless of what the physical
+    dynamics are doing. This is the essentially-affine break: completely-
+    affine (constant market price of risk) forces kappa^P=kappa^Q exactly,
+    which is the default (kappa_phys=None -> kappa) and reproduces every
+    fit before this extension byte-for-byte.
     """
     tau = np.atleast_2d(np.asarray(tau, float))
     n, m = tau.shape
     k1, k2 = max(p.kappa1, EPS), max(p.kappa2, EPS)
+    k1p, k2p = max(p.kappa1_phys, EPS), max(p.kappa2_phys, EPS)
 
-    T = np.diag([np.exp(-k1 * dt), np.exp(-k2 * dt), 1.0])
+    T = np.diag([np.exp(-k1p * dt), np.exp(-k2p * dt), 1.0])
     c = np.zeros((n, 3))
     c[:, 2] = p.mu_xi * dt
 
-    q11 = -np.expm1(-2.0 * k1 * dt) * p.sigma1 ** 2 / (2.0 * k1)
-    q22 = -np.expm1(-2.0 * k2 * dt) * p.sigma2 ** 2 / (2.0 * k2)
+    q11 = -np.expm1(-2.0 * k1p * dt) * p.sigma1 ** 2 / (2.0 * k1p)
+    q22 = -np.expm1(-2.0 * k2p * dt) * p.sigma2 ** 2 / (2.0 * k2p)
     q33 = p.sigma_xi ** 2 * dt
-    q12 = -np.expm1(-(k1 + k2) * dt) * p.rho12 * p.sigma1 * p.sigma2 / (k1 + k2)
-    q13 = -np.expm1(-k1 * dt) * p.rho1x * p.sigma1 * p.sigma_xi / k1
-    q23 = -np.expm1(-k2 * dt) * p.rho2x * p.sigma2 * p.sigma_xi / k2
+    q12 = -np.expm1(-(k1p + k2p) * dt) * p.rho12 * p.sigma1 * p.sigma2 / (k1p + k2p)
+    q13 = -np.expm1(-k1p * dt) * p.rho1x * p.sigma1 * p.sigma_xi / k1p
+    q23 = -np.expm1(-k2p * dt) * p.rho2x * p.sigma2 * p.sigma_xi / k2p
     Q = np.array([[q11, q12, q13], [q12, q22, q23], [q13, q23, q33]])
     Q = np.repeat(Q[None, :, :], n, axis=0)
 
@@ -213,15 +268,21 @@ def scale_variances3(sys: dict, p: ThreeFactorParams, *, rv_lag=None) -> dict:
 
 
 def initial_state3(log_f, tau, p: ThreeFactorParams):
-    """Stationary priors for both mean-reverting factors, diffuse for xi."""
-    k1, k2 = max(p.kappa1, EPS), max(p.kappa2, EPS)
+    """Stationary priors for both mean-reverting factors, diffuse for xi.
+
+    The stationary variance is a physical-measure question (how uncertain
+    is the state before any data, given how it has actually been evolving)
+    -- uses kappa1_phys/kappa2_phys, not kappa1/kappa2 (kappa^Q), matching
+    base_system3's T/Q. A_tau3 for xi0 stays on kappa1/kappa2 (kappa^Q)
+    since that's a pricing/drift-adjustment formula, unchanged."""
+    k1p, k2p = max(p.kappa1_phys, EPS), max(p.kappa2_phys, EPS)
     row = np.atleast_2d(np.asarray(log_f, float))[0]
     t0 = np.atleast_2d(np.asarray(tau, float))[0]
     ok = np.isfinite(row)
     xi0 = float(np.mean(row[ok] - A_tau3(p, t0[ok]))) if ok.any() else 0.0
     x0 = np.array([0.0, 0.0, xi0])
-    P0 = np.diag([p.sigma1 ** 2 / (2.0 * k1),
-                  p.sigma2 ** 2 / (2.0 * k2),
+    P0 = np.diag([p.sigma1 ** 2 / (2.0 * k1p),
+                  p.sigma2 ** 2 / (2.0 * k2p),
                   1.0])
     return x0, P0
 

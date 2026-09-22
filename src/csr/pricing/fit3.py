@@ -89,11 +89,16 @@ ETA_V_MAX = 3.0
 
 def pack3_smooth(p: ThreeFactorParams, a: float, b: float, c: float = 0.0,
                  quadratic: bool = True, eta_v: float = 0.0, lambda_v: float = 0.0,
-                 rv_extension: bool = False) -> np.ndarray:
+                 rv_extension: bool = False, ea_extension: bool = False) -> np.ndarray:
     gap = p.kappa1 - p.kappa2
     curve = [a, b, c] if quadratic else [a, b]
     extra = curve + ([np.arctanh(np.clip(eta_v / ETA_V_MAX, -0.999, 0.999)), lambda_v]
                     if rv_extension else [])
+    # kappa_phys defaults to kappa (via ThreeFactorParams.__post_init__) when
+    # the caller doesn't set it -- log-parameterised exactly like kappa2,
+    # appended at the very end so it never disturbs any existing extension's
+    # fixed indices (matching rv_extension's own append-only precedent).
+    ea = [np.log(max(p.kappa1_phys, 1e-10)), np.log(max(p.kappa2_phys, 1e-10))] if ea_extension else []
     return np.concatenate([[
         np.log(max(gap, 1e-10)), np.log(p.kappa2),
         np.log(p.sigma1), np.log(p.sigma2), np.log(p.sigma_xi),
@@ -101,22 +106,15 @@ def pack3_smooth(p: ThreeFactorParams, a: float, b: float, c: float = 0.0,
         np.arctanh(np.clip(p.rho2x, -0.999, 0.999)),
         p.mu_xi, p.mu_xi_star, p.lambda1, p.lambda2,
         np.arctanh(np.clip(p.gamma_v / GAMMA_V_MAX, -0.999, 0.999)),
-    ], extra])
+    ], extra, ea])
 
 
 def unpack3_smooth(theta: np.ndarray, quadratic: bool = True,
-                   rv_extension: bool = False
+                   rv_extension: bool = False, ea_extension: bool = False
                    ) -> tuple[ThreeFactorParams, SmoothMeasParams]:
     e = np.exp(np.clip(theta[:5], -50.0, 50.0))
     gap, kappa2, sigma1, sigma2, sigma_xi = e
-    p = ThreeFactorParams(
-        kappa1=float(kappa2 + gap), kappa2=float(kappa2),
-        sigma1=float(sigma1), sigma2=float(sigma2), sigma_xi=float(sigma_xi),
-        rho12=0.0, rho1x=float(np.tanh(theta[5])), rho2x=float(np.tanh(theta[6])),
-        mu_xi=float(theta[7]), mu_xi_star=float(theta[8]),
-        lambda1=float(theta[9]), lambda2=float(theta[10]),
-        gamma_v=float(GAMMA_V_MAX * np.tanh(theta[11])),
-    )
+    kappa1 = float(kappa2 + gap)
     idx = 12
     a, b = float(theta[idx]), float(theta[idx + 1])
     idx += 2
@@ -124,6 +122,21 @@ def unpack3_smooth(theta: np.ndarray, quadratic: bool = True,
     idx += 1 if quadratic else 0
     eta_v = float(ETA_V_MAX * np.tanh(theta[idx])) if rv_extension else 0.0
     lambda_v = float(theta[idx + 1]) if rv_extension else 0.0
+    idx += 2 if rv_extension else 0
+    if ea_extension:
+        kappa1_phys = float(np.exp(np.clip(theta[idx], -50.0, 50.0)))
+        kappa2_phys = float(np.exp(np.clip(theta[idx + 1], -50.0, 50.0)))
+    else:
+        kappa1_phys, kappa2_phys = None, None
+    p = ThreeFactorParams(
+        kappa1=kappa1, kappa2=float(kappa2),
+        sigma1=float(sigma1), sigma2=float(sigma2), sigma_xi=float(sigma_xi),
+        rho12=0.0, rho1x=float(np.tanh(theta[5])), rho2x=float(np.tanh(theta[6])),
+        mu_xi=float(theta[7]), mu_xi_star=float(theta[8]),
+        lambda1=float(theta[9]), lambda2=float(theta[10]),
+        gamma_v=float(GAMMA_V_MAX * np.tanh(theta[11])),
+        kappa1_phys=kappa1_phys, kappa2_phys=kappa2_phys,
+    )
     smooth = SmoothMeasParams(a=a, b=b, c=c, quadratic=quadratic,
                               eta_v=eta_v, lambda_v=lambda_v)
     return p, smooth
@@ -190,9 +203,9 @@ def _neg_t_loglik_df(df: float, z: np.ndarray) -> float:
 
 
 def _neg_loglik3(theta, log_f, tau, dt, quadratic, rv_lag=None, rv_extension=False,
-                 h_driver=None):
+                 h_driver=None, ea_extension=False):
     try:
-        p, smooth = unpack3_smooth(theta, quadratic, rv_extension)
+        p, smooth = unpack3_smooth(theta, quadratic, rv_extension, ea_extension)
     except ValueError:
         # rho1x, rho2x are each tanh-bounded to (-1, 1) independently, but
         # PSD of the (rho12=0, rho1x, rho2x) correlation matrix needs the
@@ -212,27 +225,27 @@ def _neg_loglik3(theta, log_f, tau, dt, quadratic, rv_lag=None, rv_extension=Fal
 
 def fit3_gaussian_smooth(log_f: np.ndarray, tau: np.ndarray, dt: float,
                          theta0: np.ndarray, quadratic: bool = True, rv_lag=None,
-                         rv_extension: bool = False, h_driver=None):
+                         rv_extension: bool = False, h_driver=None, ea_extension: bool = False):
     res = minimize(_neg_loglik3, theta0,
-                   args=(log_f, tau, dt, quadratic, rv_lag, rv_extension, h_driver),
+                   args=(log_f, tau, dt, quadratic, rv_lag, rv_extension, h_driver, ea_extension),
                    method="BFGS", options={"maxiter": 2000, "gtol": 1e-8})
     if not res.success:
         res2 = minimize(_neg_loglik3, res.x,
-                        args=(log_f, tau, dt, quadratic, rv_lag, rv_extension, h_driver),
+                        args=(log_f, tau, dt, quadratic, rv_lag, rv_extension, h_driver, ea_extension),
                         method="Nelder-Mead",
                         options={"maxiter": 20000, "xatol": 1e-10, "fatol": 1e-8})
         if res2.fun < res.fun:
             res.x = res2.x
-    p_hat, smooth_hat = unpack3_smooth(res.x, quadratic, rv_extension)
+    p_hat, smooth_hat = unpack3_smooth(res.x, quadratic, rv_extension, ea_extension)
     ll, x_filt, resid, n_obs = weighted_filter3(
         p_hat, smooth_hat, log_f, tau, dt, np.ones_like(log_f), rv_lag=rv_lag, h_driver=h_driver)
     return p_hat, smooth_hat, x_filt, resid, n_obs, ll
 
 
 def _neg_loglik3_weighted(theta, log_f, tau, dt, weight, quadratic, rv_lag=None,
-                          rv_extension=False, h_driver=None):
+                          rv_extension=False, h_driver=None, ea_extension=False):
     try:
-        p, smooth = unpack3_smooth(theta, quadratic, rv_extension)
+        p, smooth = unpack3_smooth(theta, quadratic, rv_extension, ea_extension)
     except ValueError:
         return 1e10  # see _neg_loglik3's identical guard for why
     ll, _, _, _ = weighted_filter3(p, smooth, log_f, tau, dt, weight,
@@ -245,7 +258,8 @@ def fit3_student_t_smooth(log_f: np.ndarray, tau: np.ndarray, dt: float,
                           n_outer: int = 200, tol: float = 1e-6,
                           quadratic: bool = True, rv_lag=None,
                           rv_extension: bool = False, h_driver=None,
-                          estimate_df: bool = False, df_bounds: tuple = (2.1, 100.0)):
+                          estimate_df: bool = False, df_bounds: tuple = (2.1, 100.0),
+                          ea_extension: bool = False):
     """ECM for the (per-cell, scale-mixture) Student-t fit. With
     estimate_df=False (default, matching fit.py's Sec. XI-F choice and
     every existing caller of this function), df stays exactly fixed at
@@ -268,14 +282,14 @@ def fit3_student_t_smooth(log_f: np.ndarray, tau: np.ndarray, dt: float,
     as eta_v/gamma_v's binding checks."""
     weight = np.ones_like(log_f)
     theta = np.asarray(theta0, float).copy()
-    p, smooth = unpack3_smooth(theta, quadratic, rv_extension)
+    p, smooth = unpack3_smooth(theta, quadratic, rv_extension, ea_extension)
     it = 0
     for it in range(n_outer):
         res = minimize(_neg_loglik3_weighted, theta,
-                       args=(log_f, tau, dt, weight, quadratic, rv_lag, rv_extension, h_driver),
+                       args=(log_f, tau, dt, weight, quadratic, rv_lag, rv_extension, h_driver, ea_extension),
                        method="BFGS", options={"maxiter": 300})
         theta = res.x
-        p, smooth = unpack3_smooth(theta, quadratic, rv_extension)
+        p, smooth = unpack3_smooth(theta, quadratic, rv_extension, ea_extension)
         _, _, resid_raw, _ = weighted_filter3(p, smooth, log_f, tau, dt,
                                               np.ones_like(log_f), rv_lag=rv_lag, h_driver=h_driver)
         if estimate_df:

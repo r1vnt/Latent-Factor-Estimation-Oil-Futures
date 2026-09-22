@@ -1,0 +1,148 @@
+{
+  "per_contract": [
+    {
+      "contract": 1,
+      "cov1": -7.5678408600831695e-06,
+      "roll_spread_bp": 55.01941788162855,
+      "roll_halfspread_bp": 27.509708940814274,
+      "fitted_s_bp": 163.06326752405445,
+      "ratio_fitted_over_roll": 5.927480653280509
+    },
+    {
+      "contract": 2,
+      "cov1": -0.00010212231724113964,
+      "roll_spread_bp": 202.11117459570576,
+      "roll_halfspread_bp": 101.05558729785288,
+      "fitted_s_bp": 80.19849638300094,
+      "ratio_fitted_over_roll": 0.7936077413178807
+    },
+    {
+      "contract": 3,
+      "cov1": -5.628440808622571e-05,
+      "roll_spread_bp": 150.04587043464502,
+      "roll_halfspread_bp": 75.02293521732251,
+      "fitted_s_bp": 44.890408874141634,
+      "ratio_fitted_over_roll": 0.5983558060492494
+    },
+    {
+      "contract": 4,
+      "cov1": -5.010880753391675e-05,
+      "roll_spread_bp": 141.57514970349388,
+      "roll_halfspread_bp": 70.78757485174694,
+      "fitted_s_bp": 26.727597934680766,
+      "ratio_fitted_over_roll": 0.37757470842386354
+    },
+    {
+      "contract": 5,
+      "cov1": -4.664720725757968e-05,
+      "roll_spread_bp": 136.5975215845144,
+      "roll_halfspread_bp": 68.2987607922572,
+      "fitted_s_bp": 16.226427672515026,
+      "ratio_fitted_over_roll": 0.23758011835486423
+    },
+    {
+      "contract": 6,
+      "cov1": -4.518553581505097e-05,
+      "roll_spread_bp": 134.44037461276426,
+      "roll_halfspread_bp": 67.22018730638213,
+      "fitted_s_bp": 10.615414025051674,
+      "ratio_fitted_over_roll": 0.1579200304317481
+    },
+    {
+      "contract": 7,
+      "cov1": -4.2655598707904065e-05,
+      "roll_spread_bp": 130.62250756727045,
+      "roll_halfspread_bp": 65.31125378363522,
+      "fitted_s_bp": 7.814404651621458,
+      "ratio_fitted_over_roll": 0.11964867000577291
+    },
+    {
+      "contract": 8,
+      "cov1": -4.0320623600228645e-05,
+      "roll_spread_bp": 126.99704500535222,
+      "roll_halfspread_bp": 63.49852250267611,
+      "fitted_s_bp": 5.810723337160803,
+      "ratio_fitted_over_roll": 0.09150958334370557
+    },
+    {
+      "contract": 9,
+      "cov1": -3.744649323287872e-05,
+      "roll_spread_bp": 122.38707976396645,
+      "roll_halfspread_bp": 61.19353988198323,
+      "fitted_s_bp": 4.761335723155333,
+      "ratio_fitted_over_roll": 0.07780781651687352
+    },
+    {
+      "contract": 10,
+      "cov1": -3.6591394759475314e-05,
+      "roll_spread_bp": 120.98164283803607,
+      "roll_halfspread_bp": 60.49082141901803,
+      "fitted_s_bp": 4.176335652152369,
+      "ratio_fitted_over_roll": 0.0690408156838047
+    },
+    {
+      "contract": 11,
+      "cov1": -3.503879772487486e-05,
+      "roll_spread_bp": 118.38715762256456,
+      "roll_halfspread_bp": 59.19357881128228,
+      "fitted_s_bp": 3.916195631659627,
+      "ratio_fitted_over_roll": 0.06615912925530364
+    },
+    {
+      "contract": 12,
+      "cov1": -3.404263247859603e-05,
+      "roll_spread_bp": 116.69212908949092,
+      "roll_halfspread_bp": 58.34606454474546,
+      "fitted_s_bp": 3.9412368065521846,
+      "ratio_fitted_over_roll": 0.06754931694715519
+    },
+    {
+      "contract": 13,
+      "cov1": -3.205391510154455e-05,
+      "roll_spread_bp": 113.23235421299788,
+      "roll_halfspread_bp": 56.61617710649894,
+      "fitted_s_bp": 4.219098984544566,
+      "ratio_fitted_over_roll": 0.0745210856714707
+    },
+    {
+      "contract": 14,
+      "cov1": -3.0857527942017e-05,
+      "roll_spread_bp": 111.09910520254788,
+      "roll_halfspread_bp": 55.54955260127394,
+      "fitted_s_bp": 4.883617046285135,
+      "ratio_fitted_over_roll": 0.08791460628565237
+    },
+    {
+      "contract": 15,
+      "cov1": -3.0191459745810143e-05,
+      "roll_spread_bp": 109.89351162977756,
+      "roll_halfspread_bp": 54.94675581488878,
+      "fitted_s_bp": 5.951805843007994,
+      "ratio_fitted_over_roll": 0.1083195132222028
+    },
+    {
+      "contract": 16,
+      "cov1": -2.9417908491006375e-05,
+      "roll_spread_bp": 108.4765568978042,
+      "roll_halfspread_bp": 54.2382784489021,
+      "fitted_s_bp": 7.715693070827407,
+      "ratio_fitted_over_roll": 0.14225549356431663
+    },
+    {
+      "contract": 17,
+      "cov1": -2.9256345070830738e-05,
+      "roll_spread_bp": 108.17826966786025,
+      "roll_halfspread_bp": 54.089134833930125,
+      "fitted_s_bp": 11.02426725567293,
+      "ratio_fitted_over_roll": 0.20381666834791753
+    },
+    {
+      "contract": 18,
+      "cov1": -2.8437141057870356e-05,
+      "roll_spread_bp": 106.65297193772025,
+      "roll_halfspread_bp": 53.326485968860126,
+      "fitted_s_bp": 16.616983865168866,
+      "ratio_fitted_over_roll": 0.3116084542842803
+    }
+  ]
+}

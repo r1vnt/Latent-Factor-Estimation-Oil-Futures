@@ -175,6 +175,59 @@ def test_binding_constraint_is_detectable_from_the_fitted_value():
     assert abs(smooth_interior.eta_v) / ETA_V_MAX < 0.5
 
 
+# ------------------------------------------- essentially-affine extension --
+def test_ea_extension_pack_unpack_roundtrip():
+    p = _p3().replace(kappa1_phys=1.2, kappa2_phys=0.25)
+    theta = pack3_smooth(p, a=-4.0, b=-2.0, c=1.0, quadratic=True, ea_extension=True)
+    p2, _ = unpack3_smooth(theta, quadratic=True, ea_extension=True)
+    assert p2.kappa1_phys == pytest.approx(1.2)
+    assert p2.kappa2_phys == pytest.approx(0.25)
+    assert p2.kappa1 == pytest.approx(p.kappa1)   # kappa^Q unaffected
+    assert p2.kappa2 == pytest.approx(p.kappa2)
+
+
+def test_theta_length_grows_by_exactly_two_for_ea_extension():
+    p = _p3()
+    theta_off = pack3_smooth(p, a=-4.0, b=-2.0, c=1.0, quadratic=True, ea_extension=False)
+    theta_on = pack3_smooth(p.replace(kappa1_phys=1.0, kappa2_phys=0.3), a=-4.0, b=-2.0, c=1.0,
+                            quadratic=True, ea_extension=True)
+    assert len(theta_on) == len(theta_off) + 2
+
+
+def test_ea_extension_at_kappa_phys_equals_kappa_reproduces_baseline_exactly():
+    """The Step-3-style nesting guarantee, now for the market-price-of-risk
+    restriction: kappa_phys = kappa (completely affine) must reproduce the
+    exact likelihood of the model fit without this extension at all -- not
+    approximately, since kappa_phys defaulting to kappa is an EXACT
+    reparameterisation (T/Q's kappa1_phys/kappa2_phys are literally the
+    same floats as kappa1/kappa2 in this case), not a limiting case."""
+    log_f, tau = _panel()
+    p = _p3().replace(gamma_v=0.0)   # isolate from the RV channel, same discipline as rv_extension's own nesting test
+
+    theta_off = pack3_smooth(p, a=-4.0, b=-2.0, c=1.0, quadratic=True, ea_extension=False)
+    p_ea = p.replace(kappa1_phys=p.kappa1, kappa2_phys=p.kappa2)
+    theta_on = pack3_smooth(p_ea, a=-4.0, b=-2.0, c=1.0, quadratic=True, ea_extension=True)
+
+    nll_off = _neg_loglik3(theta_off, log_f, tau, 1 / 252, True, ea_extension=False)
+    nll_on = _neg_loglik3(theta_on, log_f, tau, 1 / 252, True, ea_extension=True)
+    assert nll_off == pytest.approx(nll_on, abs=1e-9)
+
+
+def test_nonequal_kappa_phys_actually_changes_the_likelihood():
+    """Guard against the extension being vacuous."""
+    log_f, tau = _panel(seed=6)
+    p = _p3().replace(gamma_v=0.0)
+
+    theta_equal = pack3_smooth(p.replace(kappa1_phys=p.kappa1, kappa2_phys=p.kappa2),
+                               a=-4.0, b=-2.0, c=1.0, quadratic=True, ea_extension=True)
+    theta_diff = pack3_smooth(p.replace(kappa1_phys=p.kappa1 * 0.3, kappa2_phys=p.kappa2 * 0.3),
+                              a=-4.0, b=-2.0, c=1.0, quadratic=True, ea_extension=True)
+
+    nll_equal = _neg_loglik3(theta_equal, log_f, tau, 1 / 252, True, ea_extension=True)
+    nll_diff = _neg_loglik3(theta_diff, log_f, tau, 1 / 252, True, ea_extension=True)
+    assert abs(nll_equal - nll_diff) > 1e-6
+
+
 # --------------------------------------------- joint nu estimation (CM-step 2) --
 def test_neg_t_loglik_df_recovers_the_true_df_from_simulated_t_data():
     """The CM-step 2 objective is exactly sum(log t_pdf(z; df)) -- confirm
