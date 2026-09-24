@@ -1,0 +1,38 @@
+{
+  "kappa_placebo_Q": 1.5,
+  "starts": [
+    {
+      "start": 1.5,
+      "ll": 276627.0267427758,
+      "kappa_placebo_P_hat": 1.0058048291874444,
+      "sigma_placebo_hat": 0.2455380217614301
+    },
+    {
+      "start": 3.0,
+      "ll": 276627.02452575247,
+      "kappa_placebo_P_hat": 1.014798190120135,
+      "sigma_placebo_hat": 0.24555904974334333
+    },
+    {
+      "start": 1.0,
+      "ll": 276627.0261896474,
+      "kappa_placebo_P_hat": 1.013212379470165,
+      "sigma_placebo_hat": 0.24554183518948636
+    },
+    {
+      "start": 0.3,
+      "ll": 276627.02622609044,
+      "kappa_placebo_P_hat": 1.001966520589404,
+      "sigma_placebo_hat": 0.24553531048896832
+    },
+    {
+      "start": 0.03,
+      "ll": 276627.02699163416,
+      "kappa_placebo_P_hat": 1.0095876345046557,
+      "sigma_placebo_hat": 0.24555643503190117
+    }
+  ],
+  "front_gain": 13102.301050739043,
+  "placebo_gain": 14649.648042373214,
+  "ratio": 1.1180973468432778
+}
