@@ -114,3 +114,31 @@ def test_kappa_f_q_is_fixed_not_free_in_theta():
     p = _p4()
     theta = pack4_front(p, a=-4.0, b=-2.0, c=1.0, quadratic=True)
     assert len(theta) == 18
+
+
+def test_common_observation_sets_between_three_and_four_factor_front():
+    """Guards against this project's own 270x naive-LR-inflation bug (SM's
+    original comparison across mismatched observation sets, caught and
+    corrected earlier in this project): an added state dimension must not
+    change how many cells the filter actually observes on an identical
+    panel, NaN pattern included -- an LR comparison over different
+    observation counts silently inflates any likelihood gain. Asserted
+    directly here rather than assumed, since rung 2's 13,102-nat gain
+    (explore/70) is in the same magnitude band as that earlier bug."""
+    log_f, tau = _panel(seed=5)
+    rng = np.random.default_rng(1)
+    missing = rng.random(log_f.shape) < 0.05
+    log_f_missing = log_f.copy()
+    log_f_missing[missing] = np.nan
+    smooth = SmoothMeasParams(a=-4.0, b=-2.0, c=1.0, quadratic=True)
+
+    p4 = _p4()
+    _, _, _, nobs4 = weighted_filter4_front(p4, smooth, log_f_missing, tau, DT, np.ones_like(log_f_missing))
+
+    p3 = ThreeFactorParams(kappa1=1.9, kappa2=0.4, sigma1=0.22, sigma2=0.31, sigma_xi=0.2,
+                           rho12=0.0, rho1x=0.1, rho2x=0.15, mu_xi=0.0, mu_xi_star=0.01,
+                           lambda1=0.05, lambda2=0.02)
+    _, _, _, nobs3 = weighted_filter3(p3, smooth, log_f_missing, tau, DT, np.ones_like(log_f_missing))
+
+    assert nobs4 == nobs3
+    assert nobs4 == int(np.isfinite(log_f_missing).sum())
