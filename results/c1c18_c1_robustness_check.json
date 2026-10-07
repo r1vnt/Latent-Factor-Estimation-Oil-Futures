@@ -1,0 +1,51 @@
+{
+  "rows": [
+    {
+      "contract": 1,
+      "rmse_full_bp": 313.4377306073788,
+      "mae_full_bp": 147.731306091386,
+      "mae_over_rmse": 0.47132585411817735,
+      "n_covid_dropped": 62,
+      "rmse_ex_covid_bp": 161.62815361929086,
+      "n_nearexpiry_dropped": 751,
+      "rmse_ex_nearexpiry_bp": 297.6477639363078
+    },
+    {
+      "contract": 2,
+      "rmse_full_bp": 162.5028721597559,
+      "mae_full_bp": 81.6491865475808,
+      "mae_over_rmse": 0.5024476519240338,
+      "n_covid_dropped": 63,
+      "rmse_ex_covid_bp": 91.49302877655357,
+      "n_nearexpiry_dropped": 0,
+      "rmse_ex_nearexpiry_bp": 162.5028721597559
+    },
+    {
+      "contract": 3,
+      "rmse_full_bp": 59.16513509973342,
+      "mae_full_bp": 42.31708960315425,
+      "mae_over_rmse": 0.715236930192439,
+      "n_covid_dropped": 63,
+      "rmse_ex_covid_bp": 50.81778036491143,
+      "n_nearexpiry_dropped": 0,
+      "rmse_ex_nearexpiry_bp": 59.16513509973342
+    },
+    {
+      "contract": 4,
+      "rmse_full_bp": 29.175802078283652,
+      "mae_full_bp": 22.392341046189276,
+      "mae_over_rmse": 0.7674970164010164,
+      "n_covid_dropped": 63,
+      "rmse_ex_covid_bp": 28.13608477579934,
+      "n_nearexpiry_dropped": 0,
+      "rmse_ex_nearexpiry_bp": 29.175802078283652
+    }
+  ],
+  "covid_window": [
+    "2020-03-01",
+    "2020-05-31"
+  ],
+  "near_expiry_window_sessions": 5,
+  "c1_mae_over_rmse": 0.47132585411817735,
+  "verdict": "PERVASIVE"
+}
