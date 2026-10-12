@@ -1,157 +1,134 @@
-# Latent-Factor-Estimation-Oil-Futures
+# News-Augmented Oil Futures Modelling
 
-News-Augmented Latent Factor Estimation in Oil Futures Pricing: A State-Space
-Extension of the Gabillon Two-Factor Model
+### Latent factor estimation with financial news and state-space models
 
-Latent state of the oil futures curve, recovered from two measurement channels:
-prices and news.
+**Bradley Wright** · WTI futures · Commodity pricing · Kalman filtering · NLP
 
-Prices are not the state of the market — they are a noisy instrument pointed at
-it. News is a second instrument pointed at the same thing. A Kalman filter is
-the machinery for combining noisy readings of one hidden quantity, so the
-question becomes *how much state does each channel recover, and what is each
-increment worth.*
+[Read the paper](article5.pdf) · [LaTeX source](article5.tex) · [Results](#results) · [Build instructions](#build-the-paper)
 
-Design document: see `docs/` (the published plan) and the accompanying paper.
+## Overview
 
----
+Can financial news reveal information about the oil futures curve that prices alone do not capture?
 
-## Status — Phase 3 machinery, day 1
+This project explores that question through a state-space extension of the Gabillon two-factor framework. It combines structural commodity pricing, latent-factor estimation and text-derived news features, distinguishing two possible roles for news:
 
-Built, no data required:
+- **Driver:** lagged news predicts subsequent factor transitions.
+- **Measurement:** news provides an additional observation of factor innovations.
 
-- **General-`k` JIT filter** (`state/fast.py`) — univariate sequential updating,
-  time-varying `Q_t` and `H_t`, exact treatment of missing observations.
-- **State augmentation** (`state/augment.py`) — the four-dimensional
-  `z = (χ, ξ, wχ, wξ)` that exposes innovations so the news channel can measure
-  a flow rather than a stock.
-- **Pre-registered spec lattice** (`pricing/specs.py`) — `S0 / SD / SM / SDM`
-  committed before estimation, plus `SD_ASYM`. Degrees of freedom are derived
-  from the registry, never hand-maintained.
-- **Nesting assertions** (`tests/test_nesting.py`) — 12 tests, the hard gate.
-- **Timestamp forensics** (`explore/01_timestamps.py`) — run on day one.
-- **Expiry calendar** (`curve/expiry.py`) — CME NYMEX CL contract chain,
-  time-to-maturity, roll indicator.
+The reported results favour the measurement interpretation within the tested specification. They also show why improved model fit and same-day curve reconstruction should not be treated as evidence of better temporal forecasting.
 
-Not built: curve panel assembly, news pipeline, the three studies. Those need
-data.
+This is a research manuscript release. Analysis code, datasets and figure-generation scripts are not included in the materials documented here.
 
-## Day-1 findings
+## Model
 
-**Curve depth.** No Bloomberg/LSEG/Datastream access via KCL. Proceeding on
-the free EIA API (`petroleum/pri/fut`), which gives CL1–CL4 only — thin but
-workable with the Bayesian prior on κ from §XII-A. `EIA_API_KEY` goes in a
-local `.env` (gitignored), never committed or pasted into chat.
+The two-factor foundation separates temporary price deviations from a persistent equilibrium level:
 
-**The EIA series is discontinued.** `petroleum/pri/fut`'s own metadata
-reports `endPeriod: 2024-04-05` — confirmed by the pull, not a bug. CL1–CL4
-daily settlements are available 2010-01-04 through 2024-04-05 and no
-further; there is no free path to current data. If the study needs curve
-data past that date, Bloomberg/LSEG/Datastream access is not optional.
+$$
+\log S_t = \chi_t + \xi_t.
+$$
 
-**Timestamp check.** Ran `explore/01_timestamps.py` against a GDELT GKG sample
-(one Wednesday window, 2024-01-10, ~30h buffer rather than a full week —
-bandwidth-scoped; the check only uses documents timestamped on the release
-day anyway). Raw script verdict: **FAIL** (37.5% published >5min before
-release, IQR 465min). Forensic follow-up traced this to keyword-filter
-imprecision (GKG has no full article text) rather than genuine crawl-time
-contamination: most "early" documents report the American Petroleum
-Institute's Tuesday-evening estimate — a real, separate, legitimately-earlier
-release — not the EIA's Wednesday 10:30 ET report. Documents unambiguously
-about the actual EIA release (n=9, thin) show zero early mass, lags 30–465min
-post-release. **Needs corroboration across more weeks/releases before SM is
-either cleared or ruled out** — one release is not enough to decide. See
-`scripts/pull_gdelt_sample.py` and `figures/01_timestamps_sample.png`.
+The corresponding futures pricing relation is
 
-## The nesting assertion earned its place immediately
+$$
+\log F(t,T)=e^{-\kappa(T-t)}\chi_t+\xi_t+A(T-t).
+$$
 
-The lattice is only meaningful if each restricted spec reproduces its parent
-exactly. The tests caught a real design error within minutes of being written.
+The empirical news comparison extends the price model to **three factors**: fast and slow mean-reverting components plus the equilibrium-level factor. The pricing relation supplies the observation equation, while factor dynamics supply the transition equation.
 
-Asymmetric news loadings — separate responses to good and bad news — seemed to
-belong naturally in the measurement channel, splitting the feature at zero into
-`u⁺` and `u⁻`. It does not nest, and the reason is not obvious:
+| Specification | News channel |
+| --- | --- |
+| **S0** | No news contribution to state inference. |
+| **SD** | Lagged features enter transient-factor transitions. |
+| **SM** | Features measure exposed transient-factor innovations. |
+| **SDM** | Both channels are included. |
 
-> Splitting an **observation** at zero produces two rows, one of which reports a
-> structural zero on any given day. The filter cannot distinguish that zero from
-> a genuine reading of "the shock was zero", and updates the state on it. So
-> `G⁺ = G⁻` does not recover the parent — the likelihoods differed by 6221.
+Likelihood comparisons retain compatible news observations under the restricted baseline. Both fitted news channels concern the transient factors; effects on permanent equilibrium-level innovations are outside these tests.
 
-Splitting a **driver** is fine, because there `u` is an input and `u⁺ + u⁻ = u`
-exactly. Asymmetry therefore lives in `SD_ASYM`, which nests `SD` to `1e-9`.
+## Data
 
-Measurement-side asymmetry would have to condition on the sign of the *latent*
-shock, which is nonlinear in the state and needs a particle filter. Out of scope
-by choice, not oversight.
+- **Market:** NYMEX WTI crude oil futures, eighteen nearby contract positions.
+- **Price sample:** 2010–2022, ending in November 2022.
+- **Joint news–price sample:** approximately 1,950 trading observations from 2015 onwards.
+- **Text features:** sentiment, article intensity, sentiment dispersion and topics covering supply disruption, OPEC policy, geopolitics and demand.
+- **Panel construction:** individual expiring contracts, exchange-calendar expiry rules and time-varying maturities. Missing price observations are handled within the filter.
 
-Without the assertion this would have shipped: the LR test still runs, still
-returns a p-value, and nothing raises an error.
+The underlying datasets are not distributed with this manuscript release. Replication requires the original data sources, scoring model, feature-construction settings and publication-to-settlement alignment.
 
-## Layout
+## Results
 
-```
-src/csr/
-  state/
-    kalman.py       reference linear-Gaussian filter + smoother
-    fast.py         JIT kernel, general k, univariate updating
-    augment.py      innovation-exposing augmentation; news block; R_t
-  pricing/
-    twofactor.py    A(τ), state-space mapping, variance scalings
-    specs.py        the pre-registered lattice
-  curve/            [phase 1]  expiry calendar, panel assembly
-  news/             [phase 2]  ingest, dedup, scoring, features
-  study/            [phase 4+] recovery, increment, economics
-explore/            # %% scripts — interactive, outputs never committed
-scripts/            reusable pull/build scripts (GDELT sample, EIA curve)
-tests/
-```
+The following figures are reported in the manuscript.
 
-`.py` throughout with `# %%` cell markers rather than `.ipynb`: hidden state and
-out-of-order execution are the same failure mode as look-ahead bias, which is
-the project's top risk. Exploration decides *what* to compute; the package
-computes it. If a number reaches the paper, it lives in `src/` with a test.
+| Test | Result |
+| --- | --- |
+| News measurement channel | LR = **59.09**, 15 degrees of freedom; nominal **p = 3.6 × 10⁻⁷**. |
+| Standalone driver channel | LR = **2.42**, 10 degrees of freedom; **p = 0.99**. |
+| Block-shuffled measurement placebo | Reported permutation **p = 0.001**. |
+| Three-factor versus two-factor pricing | **44.6% lower overall RMSE** on excluded deferred maturities. |
+| Same-day pricing versus Nelson–Siegel | Lower RMSE at **14 of 18 maturities**, but larger errors at the first four. |
+| Front-contract forecast versus random walk | The filter wins on **37.5% of days**. |
 
-## Design decisions worth knowing before editing
+**Interpretation:** the news measurement channel exhibits an alignment-specific association with transient innovations. This does not establish causality or a tradable signal. Cross-sectional pricing gains are concentrated away from the front; pooled same-day RMSE favours Nelson–Siegel, and the temporal comparisons do not establish forecast superiority.
 
-**`Q4` is singular by construction.** The augmented disturbance is
-`(wχ, wξ, wχ, wξ)` — the same draw in both blocks — so `Q4` has rank 2. Harmless
-for a Kalman filter, which needs only PSD, but never hand it to code assuming
-invertibility.
+The leave-one-out state-update exercise retains fitted parameters. It is distinct from a test that also re-estimates all parameters without the excluded contract. News-intensity and content–persistence screens provide no support at the reported measures, horizons and thresholds.
 
-**`R_t = ς²_t / n_t` is a plug-in, not a posit.** Daily sentiment is a mean over
-that day's documents, so this is the sampling variance of a mean — both inputs
-observed. `news_variance()` raises on negative counts, because passing the
-*standardised* intensity here instead of raw counts is an easy and silent error.
+## Validation
 
-**Realised volatility must be lagged before it reaches `scale_variances`.**
-Contemporaneous RV makes the state prior a function of the data being explained,
-and the prediction-error decomposition stops being the likelihood.
+The study evaluates the estimator and its empirical interpretation through:
 
-**News lag is enforced in code, not convention.** `append_news_block(lag=...)`
-places news at the period whose shock it describes. The estimation grid may
-include zero or negative lags purely as a timestamp diagnostic; anything used
-for inference is `lag >= 1`.
+- Monte Carlo parameter recovery, interval coverage and driver-test size/power.
+- Multi-start estimation and maturity-panel perturbations.
+- Common-observation likelihood comparisons and numerical nesting checks.
+- Update-order diagnostics separating same-day residuals from temporal forecasts.
+- Excluded-maturity pricing and random-walk forecasting benchmarks.
+- Block-shuffled news controls and residual-dependence diagnostics.
 
-**API keys never live in the repo.** `EIA_API_KEY` (and any future key) goes
-in a local `.env`, which is gitignored.
+A smooth maturity-dependent observation-variance curve restricts unstable near-exact pricing configurations. Variance extensions improve tail calibration but leave serial dependence in squared innovations unresolved.
 
-## Usage
+## Limitations and project status
+
+- **Combined-channel optimisation remains incomplete.** The achieved SDM likelihood is below its nested SM fit, preventing a definitive conditional driver comparison.
+- **The measurement result is exploratory** relative to the original Part I hypotheses.
+- **Timing and endogeneity matter.** News may describe price movements; shuffling does not distinguish that from independent information about fundamentals.
+- **Front-end fit and variance calibration remain problematic.** Fast-factor estimates are sensitive to maturity coverage, and squared innovations retain serial dependence.
+- **Economic value has not been evaluated.** The trading study was not executed, and the proposed H4/H5 performance tests have no completed results reported in the manuscript.
+
+Future work should complete optimisation, document the data and NLP pipeline, validate recursive variance dynamics and assess front-end alternatives on genuinely held-out data before evaluating trading performance.
+
+## Build the paper
+
+Use a LaTeX distribution containing **IEEEtran**, **pdfLaTeX** and the packages declared in `article5.tex`. Place the manuscript at the repository root and preserve its `figs/` paths.
 
 ```bash
-python -m venv .venv && source .venv/Scripts/activate   # Windows Git Bash
-pip install -e ".[fast,dev,data]"
-pytest tests/ -q                     # expect 32 passed
-python explore/01_timestamps.py      # run from inside explore/ (relative data path)
+latexmk -pdf -interaction=nonstopmode -halt-on-error article5.tex
 ```
 
-## Next
+Without `latexmk`, run pdfLaTeX until cross-references settle:
 
-1. `EIA_API_KEY` registered — wire up `scripts/pull_eia_curve.py` for CL1–CL4,
-   daily, back to 2010.
-2. `curve/build.py` — panel assembly, outlier screens, the Panel contract
-   every study consumes.
-3. Re-run the timestamp check across more weeks once the news pipeline can
-   pull at scale, to settle SM viability with more than one release's worth
-   of evidence.
-4. `specs.py` is already committed. Do not edit the lattice after seeing
-   results.
+```bash
+pdflatex -interaction=nonstopmode -halt-on-error article5.tex
+pdflatex -interaction=nonstopmode -halt-on-error article5.tex
+pdflatex -interaction=nonstopmode -halt-on-error article5.tex
+```
+
+The bibliography is embedded in the manuscript; no separate BibTeX pass is required. Building the PDF does not reproduce the empirical analysis.
+
+<details>
+<summary><strong>Required figure assets</strong></summary>
+
+Four images are included directly and must be present for a normal build:
+
+- `figs/Figure_1.png`
+- `figs/figure_2.png`
+- `figs/Figure_3.png`
+- `figs/Figure_4.png`
+
+Other figure references use `\figplaceholder`, which displays a labelled box when an image is missing. All original assets are needed to reproduce the complete illustrated paper. Preserve filename case on case-sensitive systems.
+
+</details>
+
+## Attribution
+
+**Paper:** *News-Augmented Latent Factor Estimation in Oil Futures Pricing: A State-Space Extension of the Gabillon Two-Factor Model*  
+**Author:** Bradley Wright
+
+No reuse licence is specified in the accompanying materials. Manuscript and underlying data permissions must be established separately.
