@@ -1,0 +1,35 @@
+S3 baseline curve: a=-3.7334  b=-8.9844  c=4.9020
+multistart record ll=275079.68
+Gaussian warm start: BFGS only, skipping the Nelder-Mead fallback
+BFGS success=False  ll=275079.68  nit=31  elapsed=25s
+
+Starting instrumented Student-t EM
+  outer   1:  inner_nit=  16  ll=   275079.68  weight_shift=9.924e-01  iter_time=  12.0s  total_em_time=   12.0s
+  outer   2:  inner_nit=  35  ll=   274363.29  weight_shift=7.785e-01  iter_time=  32.0s  total_em_time=   44.0s
+  outer   3:  inner_nit=  90  ll=   274203.10  weight_shift=5.914e-02  iter_time=  30.5s  total_em_time=   74.5s
+  outer   4:  inner_nit=  59  ll=   274182.20  weight_shift=1.082e-02  iter_time=  34.8s  total_em_time=  109.4s
+  outer   5:  inner_nit=  42  ll=   274179.80  weight_shift=2.993e-03  iter_time=  24.6s  total_em_time=  133.9s
+  outer   6:  inner_nit=  15  ll=   274178.86  weight_shift=7.983e-04  iter_time=  12.8s  total_em_time=  146.7s
+  outer   7:  inner_nit=  15  ll=   274178.56  weight_shift=6.077e-04  iter_time=  13.0s  total_em_time=  159.7s
+  outer   8:  inner_nit=  12  ll=   274178.91  weight_shift=2.993e-04  iter_time=  11.4s  total_em_time=  171.1s
+  outer   9:  inner_nit=   6  ll=   274178.85  weight_shift=1.291e-04  iter_time=  11.5s  total_em_time=  182.6s
+  outer  10:  inner_nit=  14  ll=   274178.79  weight_shift=8.637e-05  iter_time=  18.4s  total_em_time=  201.1s
+  outer  11:  inner_nit=  10  ll=   274178.91  weight_shift=1.338e-04  iter_time=   9.3s  total_em_time=  210.4s
+  outer  12:  inner_nit=  34  ll=   274178.76  weight_shift=1.296e-04  iter_time=  19.8s  total_em_time=  230.2s
+  outer  13:  inner_nit=  13  ll=   274178.80  weight_shift=1.239e-04  iter_time=  13.1s  total_em_time=  243.2s
+  outer  14:  inner_nit=  16  ll=   274178.81  weight_shift=7.297e-05  iter_time=  15.6s  total_em_time=  258.8s
+  outer  15:  inner_nit=  17  ll=   274178.84  weight_shift=1.159e-04  iter_time=  30.4s  total_em_time=  289.2s
+  outer  16:  inner_nit=  17  ll=   274178.83  weight_shift=1.067e-04  iter_time=  21.8s  total_em_time=  311.0s
+  outer  17:  inner_nit=  25  ll=   274178.83  weight_shift=1.543e-05  iter_time=  25.8s  total_em_time=  336.8s
+  outer  18:  inner_nit=  27  ll=   274178.84  weight_shift=6.093e-05  iter_time=  19.2s  total_em_time=  356.0s
+  outer  19:  inner_nit=  13  ll=   274178.86  weight_shift=1.862e-05  iter_time=  15.3s  total_em_time=  371.3s
+  outer  20:  inner_nit=   9  ll=   274178.84  weight_shift=3.615e-05  iter_time=   9.8s  total_em_time=  381.0s
+  outer  21:  inner_nit=  12  ll=   274178.92  weight_shift=4.138e-05  iter_time=  12.5s  total_em_time=  393.5s
+  outer  22:  inner_nit=  11  ll=   274178.86  weight_shift=3.973e-05  iter_time=  12.1s  total_em_time=  405.6s
+  outer  23:  inner_nit=   2  ll=   274178.86  weight_shift=6.453e-06  iter_time=   6.6s  total_em_time=  412.3s
+  outer  24:  inner_nit=   3  ll=   274178.86  weight_shift=2.096e-06  iter_time=   2.1s  total_em_time=  414.4s
+  outer  25:  inner_nit=  17  ll=   274178.82  weight_shift=4.212e-05  iter_time=  11.3s  total_em_time=  425.6s
+  outer  26:  inner_nit=  20  ll=   274178.86  weight_shift=4.919e-05  iter_time=  28.0s  total_em_time=  453.7s
+  outer  27:  inner_nit=  50  ll=   274178.97  weight_shift=5.064e-05  iter_time=  36.0s  total_em_time=  489.7s
+  outer  28:  inner_nit=  20  ll=   274178.93  weight_shift=7.674e-05  iter_time=  20.1s  total_em_time=  509.8s
+  outer  29:  inner_nit=  17  ll=   274178.88  weight_shift=6.218e-05  iter_time=  19.6s  total_em_time=  529.3s

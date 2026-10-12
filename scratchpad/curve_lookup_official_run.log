@@ -1,0 +1,13 @@
+S3 baseline curve: a=-3.7334  b=-8.9844  c=4.9020
+
+Gaussian warm start: ll=275079.68
+converged in 18 EM iterations  ll=274178.75  (multistart record: 275079.68)
+kappa2=2.1992 (record 2.1790)  kappa3=0.4303 (record 0.3850)  kappa_f_P=6.7222 (record 8.2782)  sigma_f=0.2150 (record 0.2475)
+
+unrestricted 4F-front curve: a=-4.9843  b=-6.1613  c=3.5126
+Traceback (most recent call last):
+  File "C:\Users\bradl\Documents\GitHub\Latent-Factor-Estimation-Oil-Futures\explore\78_fourfactor_front_curve_lookup_c1c18.py", line 91, in <module>
+    raise RuntimeError(
+    ...<2 lines>...
+        f"on the established rung-2 optimum. Refusing to report curve numbers from the wrong point.")
+RuntimeError: Reconverged ll=274178.75 does not match the multistart record 275079.68 (diff=-900.93, tol=1.0) -- this did NOT land on the established rung-2 optimum. Refusing to report curve numbers from the wrong point.

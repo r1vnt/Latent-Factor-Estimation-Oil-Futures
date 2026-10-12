@@ -1,0 +1,3 @@
+S3 baseline curve: a=-3.7334  b=-8.9844  c=4.9020
+Gaussian warm start: BFGS only, skipping the Nelder-Mead fallback
+BFGS success=False  ll=275079.68  nit=31
